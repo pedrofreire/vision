@@ -85,3 +85,6 @@ at::Tensor nms_cuda(
     const at::Tensor& dets,
     const at::Tensor& scores,
     const float iou_threshold);
+
+at::Tensor dcn_cuda(
+    const at::Tensor& input);

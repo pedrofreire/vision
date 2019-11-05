@@ -84,3 +84,6 @@ at::Tensor nms_cpu(
     const at::Tensor& dets,
     const at::Tensor& scores,
     const float iou_threshold);
+
+at::Tensor dcn(
+    const at::Tensor& input);

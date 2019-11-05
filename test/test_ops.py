@@ -1222,5 +1222,11 @@ class NMSTester(unittest.TestCase):
             self.assertTrue(torch.allclose(r_cpu, r_cuda.cpu()), err_msg.format(iou))
 
 
+class DCNTester(unittest.TestCase):
+    def test_basic(self):
+        x = torch.ones(1, device=torch.device('cpu'))
+        res = ops.dcn(3)
+        self.assertEqual(res, 10)
+
 if __name__ == '__main__':
     unittest.main()

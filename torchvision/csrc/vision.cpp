@@ -45,4 +45,5 @@ static auto registry =
         .op("torchvision::roi_pool", &roi_pool)
         .op("torchvision::ps_roi_align", &ps_roi_align)
         .op("torchvision::ps_roi_pool", &ps_roi_pool)
+        .op("torchvision::dcn", &dcn)
         .op("torchvision::_cuda_version", &_cuda_version);
