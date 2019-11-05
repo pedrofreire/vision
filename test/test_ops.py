@@ -1225,8 +1225,8 @@ class NMSTester(unittest.TestCase):
 class DCNTester(unittest.TestCase):
     def test_basic(self):
         x = torch.ones(1, device=torch.device('cpu'))
-        res = ops.dcn(3)
-        self.assertEqual(res, 10)
+        res = ops.dcn(x)
+        self.assertEqual(res, 3)
 
 if __name__ == '__main__':
     unittest.main()

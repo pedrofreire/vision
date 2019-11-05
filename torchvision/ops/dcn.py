@@ -26,7 +26,7 @@ def dcn(input):
     Returns:
         output (Tensor[K, C, output_size[0], output_size[1]])
     """
-    output, _ = torch.ops.torchvision.dcn(input)
+    output = torch.ops.torchvision.dcn(input)
     return output
 
 
@@ -39,8 +39,8 @@ class DCN(nn.Module):
         self.output_size = output_size
         self.spatial_scale = spatial_scale
 
-    def forward(self, input, rois):
-        return dcn(input, rois, self.output_size, self.spatial_scale)
+    def forward(self, input):
+        return dcn(input)
 
     def __repr__(self):
         tmpstr = self.__class__.__name__ + '('

@@ -86,5 +86,9 @@ at::Tensor nms_cuda(
     const at::Tensor& scores,
     const float iou_threshold);
 
-at::Tensor dcn_cuda(
-    const at::Tensor& input);
+
+at::Tensor DCN_forward_cuda(
+    const at::Tensor& inudat);
+
+at::Tensor DCN_backward_cuda(
+    const at::Tensor& grad);

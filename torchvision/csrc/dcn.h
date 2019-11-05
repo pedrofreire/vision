@@ -6,7 +6,7 @@
 #include "cuda/vision_cuda.h"
 #endif
 
-std::tuple<at::Tensor, at::Tensor> DCN_forward(
+at::Tensor DCN_forward(
     const at::Tensor& input) {
   if (input.type().is_cuda()) {
 #ifdef WITH_CUDA
@@ -42,7 +42,7 @@ class DCNFunction : public torch::autograd::Function<DCNFunction> {
       Variable input) {
     ctx->saved_data["important_data"] = {42};
     auto output = DCN_forward(input);
-    return {output};
+    return {output, };
   }
 
   static variable_list backward(

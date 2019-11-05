@@ -85,5 +85,9 @@ at::Tensor nms_cpu(
     const at::Tensor& scores,
     const float iou_threshold);
 
-at::Tensor dcn(
+at::Tensor DCN_forward_cpu(
     const at::Tensor& input);
+
+at::Tensor DCN_backward_cpu(
+    const at::Tensor& grad);
+

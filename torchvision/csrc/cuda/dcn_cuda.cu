@@ -7,20 +7,20 @@
 #include "cuda_helpers.h"
 
 template <typename T>
-__global__ void RoIPoolForward(
+__global__ void DCNForward(
     const T* input,
     T* output) {
   output[0] = 10;
 }
 
 template <typename T>
-__global__ void RoIPoolBackward(
+__global__ void DCNBackward(
     const T* grad_output,
     T* grad_input) {
   grad_input[0] = 20;
 }
 
-at::Tensor ROIPool_forward_cuda(
+at::Tensor DCN_forward_cuda(
     const at::Tensor& input) {
   AT_ASSERTM(input.device().is_cuda(), "input must be a CUDA tensor");
 
@@ -29,8 +29,8 @@ at::Tensor ROIPool_forward_cuda(
   at::Tensor output = at::zeros(
       {1}, input.options());
 
-  AT_DISPATCH_FLOATING_TYPES_AND_HALF(input.type(), "ROIPool_forward", [&] {
-    RoIPoolForward<scalar_t><<<grid, block, 0, stream>>>(
+  AT_DISPATCH_FLOATING_TYPES_AND_HALF(input.type(), "DCN_forward", [&] {
+    DCNForward<scalar_t><<<grid, block, 0, stream>>>(
         input.contiguous().data_ptr<scalar_t>(),
         output.data_ptr<scalar_t>());
   });
@@ -38,7 +38,7 @@ at::Tensor ROIPool_forward_cuda(
   return output;
 }
 
-at::Tensor ROIPool_backward_cuda(
+at::Tensor DCN_backward_cuda(
     const at::Tensor& grad) {
   AT_ASSERTM(grad.device().is_cuda(), "grad must be a CUDA tensor");
   at::cuda::CUDAGuard device_guard(grad.device());
@@ -48,8 +48,8 @@ at::Tensor ROIPool_backward_cuda(
 
   cudaStream_t stream = at::cuda::getCurrentCUDAStream();
 
-  AT_DISPATCH_FLOATING_TYPES_AND_HALF(grad.type(), "ROIPool_backward", [&] {
-    RoIPoolBackward<scalar_t><<<grid, block, 0, stream>>>(
+  AT_DISPATCH_FLOATING_TYPES_AND_HALF(grad.type(), "DCN_backward", [&] {
+    DCNBackward<scalar_t><<<grid, block, 0, stream>>>(
         grad.data_ptr<scalar_t>(),
         grad_input.data_ptr<scalar_t>());
   });
