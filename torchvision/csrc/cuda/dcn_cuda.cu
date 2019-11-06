@@ -26,11 +26,13 @@ at::Tensor DCN_forward_cuda(
 
   at::cuda::CUDAGuard device_guard(input.device());
 
+  cudaStream_t stream = at::cuda::getCurrentCUDAStream();
+
   at::Tensor output = at::zeros(
       {1}, input.options());
 
   AT_DISPATCH_FLOATING_TYPES_AND_HALF(input.type(), "DCN_forward", [&] {
-    DCNForward<scalar_t><<<grid, block, 0, stream>>>(
+    DCNForward<scalar_t><<<1, 1, 0, stream>>>(
         input.contiguous().data_ptr<scalar_t>(),
         output.data_ptr<scalar_t>());
   });
@@ -49,7 +51,7 @@ at::Tensor DCN_backward_cuda(
   cudaStream_t stream = at::cuda::getCurrentCUDAStream();
 
   AT_DISPATCH_FLOATING_TYPES_AND_HALF(grad.type(), "DCN_backward", [&] {
-    DCNBackward<scalar_t><<<grid, block, 0, stream>>>(
+    DCNBackward<scalar_t><<<1, 1, 0, stream>>>(
         grad.data_ptr<scalar_t>(),
         grad_input.data_ptr<scalar_t>());
   });
