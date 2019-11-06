@@ -89,5 +89,5 @@ at::Tensor DCN_forward_cpu(
     const at::Tensor& input);
 
 at::Tensor DCN_backward_cpu(
-    const at::Tensor& grad);
+    const at::Tensor& grad, const at::Tensor& input);
 

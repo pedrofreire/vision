@@ -7,14 +7,7 @@ template <typename T>
 void DCN_Forward(
     const T* input,
     T* output) {
-  output[0] = 3;
-}
-
-template <typename T>
-void DCNBackward(
-    const T* grad,
-    T* grad_input) {
-  grad_input[0] = 5;
+  output[0] = input[0] * input[0];
 }
 
 at::Tensor DCN_forward_cpu(const at::Tensor& input) {
@@ -30,8 +23,15 @@ at::Tensor DCN_forward_cpu(const at::Tensor& input) {
   return output;
 }
 
+template <typename T>
+void DCN_Backward(
+    const T* grad, const T* input,
+    T* grad_input) {
+  grad_input[0] = 2 * input[0] * grad[0];
+}
+
 at::Tensor DCN_backward_cpu(
-    const at::Tensor& grad) {
+    const at::Tensor& grad, const at::Tensor& input) {
   // Check if input tensors are CPU tensors
   AT_ASSERTM(grad.device().is_cpu(), "grad must be a CPU tensor");
 
@@ -43,8 +43,9 @@ at::Tensor DCN_backward_cpu(
   }
 
   AT_DISPATCH_FLOATING_TYPES_AND_HALF(grad.type(), "DCN_backward", [&] {
-    DCNBackward<scalar_t>(
+    DCN_Backward<scalar_t>(
         grad.data_ptr<scalar_t>(),
+        input.data_ptr<scalar_t>(),
         grad_input.data_ptr<scalar_t>());
   });
   return grad_input;

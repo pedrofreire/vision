@@ -91,4 +91,5 @@ at::Tensor DCN_forward_cuda(
     const at::Tensor& inudat);
 
 at::Tensor DCN_backward_cuda(
-    const at::Tensor& grad);
+    const at::Tensor& grad,
+    const at::Tensor& input);

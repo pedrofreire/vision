@@ -18,15 +18,15 @@ at::Tensor DCN_forward(
   return DCN_forward_cpu(input);
 }
 
-at::Tensor DCN_backward(const at::Tensor& grad) {
+at::Tensor DCN_backward(const at::Tensor& grad, const at::Tensor& input) {
   if (grad.type().is_cuda()) {
 #ifdef WITH_CUDA
-    return DCN_backward_cuda(grad);
+    return DCN_backward_cuda(grad, input);
 #else
     AT_ERROR("Not compiled with GPU support");
 #endif
   }
-  return DCN_backward_cpu(grad);
+  return DCN_backward_cpu(grad, input);
 }
 
 using namespace at;
@@ -40,17 +40,18 @@ class DCNFunction : public torch::autograd::Function<DCNFunction> {
   static variable_list forward(
       AutogradContext* ctx,
       Variable input) {
-    ctx->saved_data["important_data"] = {42};
     auto output = DCN_forward(input);
-    return {output, };
+    ctx->save_for_backward({input, });
+    return {output,};
   }
 
   static variable_list backward(
       AutogradContext* ctx,
       variable_list grad_output) {
     // Use data saved in forward
-    auto important = ctx->saved_data["input_shape"].toIntList();
-    auto grad_in = DCN_backward(grad_output[0]);
+    auto saved = ctx->get_saved_variables();
+    auto input = saved[0];
+    auto grad_in = DCN_backward(grad_output[0], input);
     return {grad_in};
   }
 };

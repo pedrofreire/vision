@@ -13,13 +13,6 @@ __global__ void DCNForward(
   output[0] = 10;
 }
 
-template <typename T>
-__global__ void DCNBackward(
-    const T* grad_output,
-    T* grad_input) {
-  grad_input[0] = 20;
-}
-
 at::Tensor DCN_forward_cuda(
     const at::Tensor& input) {
   AT_ASSERTM(input.device().is_cuda(), "input must be a CUDA tensor");
@@ -40,8 +33,16 @@ at::Tensor DCN_forward_cuda(
   return output;
 }
 
+template <typename T>
+__global__ void DCNBackward(
+    const T* grad_output,
+    const T* input,
+    T* grad_input) {
+  grad_input[0] = 2 * input[0] * grad_output[0];
+}
+
 at::Tensor DCN_backward_cuda(
-    const at::Tensor& grad) {
+    const at::Tensor& grad, const at::Tensor& input) {
   AT_ASSERTM(grad.device().is_cuda(), "grad must be a CUDA tensor");
   at::cuda::CUDAGuard device_guard(grad.device());
 
@@ -53,6 +54,7 @@ at::Tensor DCN_backward_cuda(
   AT_DISPATCH_FLOATING_TYPES_AND_HALF(grad.type(), "DCN_backward", [&] {
     DCNBackward<scalar_t><<<1, 1, 0, stream>>>(
         grad.data_ptr<scalar_t>(),
+        input.data_ptr<scalar_t>(),
         grad_input.data_ptr<scalar_t>());
   });
   return grad_input;
