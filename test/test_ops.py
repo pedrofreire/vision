@@ -1223,10 +1223,21 @@ class NMSTester(unittest.TestCase):
 
 
 class DCNTester(unittest.TestCase):
-    def test_basic(self):
+    def test_forward_cpu(self):
         x = torch.ones(1, device=torch.device('cpu'))
         res = ops.dcn(x)
         self.assertEqual(res, 3)
+
+    def test_backward_cpu(self):
+        pass
+
+    def test_forward_cuda(self):
+        x = torch.ones(1, device=torch.device('cuda'))
+        res = ops.dcn(x)
+        self.assertEqual(res, 3)
+
+    def test_backward_cuda(self):
+        pass
 
 if __name__ == '__main__':
     unittest.main()
