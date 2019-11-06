@@ -6,14 +6,14 @@ from torch.jit.annotations import List
 
 
 
-def dcn(input):
+def dcn(input, offset, weight):
     # type: (Tensor) -> Tensor
     """
     Performs Deformable Convolution described in Deformable Convolution Networks
 
     Arguments:
         input (Tensor[N, C, H, W]): input tensor
-        boxes (Tensor[K, 5] or List[Tensor[L, 4]]): the box coordinates in (x1, y1, x2, y2)
+        offset (Tensor[K, 5] or List[Tensor[L, 4]]): the box coordinates in (x1, y1, x2, y2)
             format where the regions will be taken from. If a single Tensor is passed,
             then the first column should contain the batch index. If a list of Tensors
             is passed, then each Tensor will correspond to the boxes for an element i
@@ -26,7 +26,16 @@ def dcn(input):
     Returns:
         output (Tensor[K, C, output_size[0], output_size[1]])
     """
-    output = torch.ops.torchvision.dcn(input)
+
+    stride = 1
+    padding = 0
+    dilation = 1
+    groups = 1
+    deformable_groups = 1
+    im2col_step = 1
+
+    output = torch.ops.torchvision.dcn(input, offset, weight, stride, padding,
+            dilation, groups, deformable_groups, im2col_step)
     return output
 
 

@@ -7,15 +7,26 @@
 #endif
 
 at::Tensor DCN_forward(
-    const at::Tensor& input) {
+    const Tensor& input,
+    const Tensor& offset,
+    const Tensor& weights,
+    const int64_t stride,
+    const int64_t padding,
+    const int64_t dilation,
+    const int64_t groups,
+    const int64_t deformable_groups,
+    const int64_t im2col_step    
+    ) {
   if (input.type().is_cuda()) {
 #ifdef WITH_CUDA
-    return DCN_forward_cuda(input);
+    return DCN_forward_cuda(input, offset, weights, stride, padding,
+                      dilation, groups, deformable_groups, im2col_step);
 #else
     AT_ERROR("Not compiled with GPU support");
 #endif
   }
-  return DCN_forward_cpu(input);
+  return DCN_forward_cpu(input, offset, weights, stride, padding,
+                    dilation, groups, deformable_groups, im2col_step);
 }
 
 at::Tensor DCN_backward(const at::Tensor& grad, const at::Tensor& input) {
@@ -39,25 +50,44 @@ class DCNFunction : public torch::autograd::Function<DCNFunction> {
  public:
   static variable_list forward(
       AutogradContext* ctx,
-      Variable input) {
-    auto output = DCN_forward(input);
-    ctx->save_for_backward({input, });
+      Variable input,
+      Variable offset,
+      Variable weights,
+      const int64_t stride,
+      const int64_t padding,
+      const int64_t dilation,
+      const int64_t groups,
+      const int64_t deformable_groups,
+      const int64_t im2col_step) {
+    auto output = DCN_forward(input, offset, weights, stride, padding,
+                    dilation, groups, deformable_groups, im2col_step);
+    ctx->save_for_backward({input, offset, weights});
     return {output,};
   }
 
   static variable_list backward(
       AutogradContext* ctx,
       variable_list grad_output) {
-    // Use data saved in forward
     auto saved = ctx->get_saved_variables();
     auto input = saved[0];
     auto grad_in = DCN_backward(grad_output[0], input);
-    return {grad_in};
+    return {grad_in, Variable(), Variable(),
+            Variable(), Variable(), Variable(),
+            Variable(), Variable(), Variable(),};
   }
 };
 
 Tensor dcn(
-    const Tensor& input) {
-  auto result = DCNFunction::apply(input);
+    const Tensor& input,
+    const Tensor& offset,
+    const Tensor& weights,
+    const int64_t stride,
+    const int64_t padding,
+    const int64_t dilation,
+    const int64_t groups,
+    const int64_t deformable_groups,
+    const int64_t im2col_step) {
+  auto result = DCNFunction::apply(input, offset, weights, stride, padding,
+                          dilation, groups, deformable_groups, im2col_step);
   return result[0];
 }

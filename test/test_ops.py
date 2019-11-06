@@ -1225,18 +1225,26 @@ class NMSTester(unittest.TestCase):
 class DCNTester(unittest.TestCase):
     def test_forward_cpu(self):
         x = 10 * torch.ones(1, device=torch.device('cpu'))
-        res = ops.dcn(x)
+        offset = torch.zeros(1)
+        weights = torch.zeros(1)
+        res = ops.dcn(x, offset, weights)
         self.assertEqual(res, 100)
 
     def test_backward_cpu(self):
         x = 10 * torch.ones(1, device=torch.device('cpu'), requires_grad=True, dtype=torch.float64)
-        gradcheck(ops.dcn, (x,))
+        offset = torch.zeros(1)
+        weights = torch.zeros(1)
+
+        def fn(z):
+            return ops.dcn(z, offset, weights)
+
+        gradcheck(fn, (x,))
 
     @unittest.skipIf(not torch.cuda.is_available(), "CUDA unavailable")
     def test_forward_cuda(self):
-        x = torch.ones(1, device=torch.device('cuda'))
+        x = 10 * torch.ones(1, device=torch.device('cuda'))
         res = ops.dcn(x)
-        self.assertEqual(res, 3)
+        self.assertEqual(res, 100)
 
     @unittest.skipIf(not torch.cuda.is_available(), "CUDA unavailable")
     def test_backward_cuda(self):

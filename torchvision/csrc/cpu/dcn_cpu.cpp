@@ -10,7 +10,16 @@ void DCN_Forward(
   output[0] = input[0] * input[0];
 }
 
-at::Tensor DCN_forward_cpu(const at::Tensor& input) {
+at::Tensor DCN_forward_cpu(
+    const at::Tensor& input,
+    const at::Tensor& offset,
+    const at::Tensor& weights,
+    const int64_t stride,
+    const int64_t padding,
+    const int64_t dilation,
+    const int64_t groups,
+    const int64_t deformable_groups,
+    const int64_t im2col_step) {
   AT_ASSERTM(input.device().is_cpu(), "input must be a CPU tensor");
 
   at::Tensor output = at::zeros({1}, input.options());

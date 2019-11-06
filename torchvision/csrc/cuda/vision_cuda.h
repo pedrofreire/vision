@@ -86,9 +86,16 @@ at::Tensor nms_cuda(
     const at::Tensor& scores,
     const float iou_threshold);
 
-
-at::Tensor DCN_forward_cuda(
-    const at::Tensor& inudat);
+at::Tensor DCN_forward_cpu(
+    const at::Tensor& input,
+    const at::Tensor& offset,
+    const at::Tensor& weights,
+    const int64_t stride,
+    const int64_t padding,
+    const int64_t dilation,
+    const int64_t groups,
+    const int64_t deformable_groups,
+    const int64_t im2col_step);
 
 at::Tensor DCN_backward_cuda(
     const at::Tensor& grad,
