@@ -1229,15 +1229,19 @@ class DCNTester(unittest.TestCase):
         self.assertEqual(res, 3)
 
     def test_backward_cpu(self):
-        pass
+        x = torch.ones(1, device=torch.device('cpu'))
+        gradcheck(ops.dcn, (x,))
 
+    @unittest.skipIf(not torch.cuda.is_available(), "CUDA unavailable")
     def test_forward_cuda(self):
         x = torch.ones(1, device=torch.device('cuda'))
         res = ops.dcn(x)
         self.assertEqual(res, 3)
 
+    @unittest.skipIf(not torch.cuda.is_available(), "CUDA unavailable")
     def test_backward_cuda(self):
-        pass
+        x = torch.ones(1, device=torch.device('cpu'))
+        gradcheck(ops.dcn, (x,))
 
 if __name__ == '__main__':
     unittest.main()
