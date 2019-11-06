@@ -86,7 +86,7 @@ at::Tensor nms_cuda(
     const at::Tensor& scores,
     const float iou_threshold);
 
-at::Tensor DCN_forward_cpu(
+at::Tensor DCN_forward_cuda(
     const at::Tensor& input,
     const at::Tensor& offset,
     const at::Tensor& weights,
