@@ -253,7 +253,7 @@ __global__ void DCNForward(
 at::Tensor DCN_forward_cuda(
     const at::Tensor& input,
     const at::Tensor& offset,
-    const at::Tensor& weight,
+    const at::Tensor& weights,
     const int stride,
     const int padding,
     const int dilation,
@@ -267,7 +267,7 @@ at::Tensor DCN_forward_cuda(
   cudaStream_t stream = at::cuda::getCurrentCUDAStream();
 
   auto batch_size = input.size(0);
-  auto n_channels = weight.size(0);
+  auto n_channels = weights.size(0);
   auto in_size = input.size(2);
   auto kernel_size = dilation * (weights.size(2) - 1) - 1;
   auto out_size = (in_size + (2 * pad) - kernel_size) / stride + 1;
