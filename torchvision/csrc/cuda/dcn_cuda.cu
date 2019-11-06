@@ -10,7 +10,7 @@ template <typename T>
 __global__ void DCNForward(
     const T* input,
     T* output) {
-  output[0] = 10;
+  output[0] = input[0] * input[0];
 }
 
 at::Tensor DCN_forward_cuda(
