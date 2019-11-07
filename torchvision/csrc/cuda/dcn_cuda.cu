@@ -270,7 +270,7 @@ at::Tensor DCN_forward_cuda(
   auto n_channels = weights.size(0);
   auto in_size = input.size(2);
   auto kernel_size = dilation * (weights.size(2) - 1) - 1;
-  auto out_size = (in_size + (2 * pad) - kernel_size) / stride + 1;
+  auto out_size = (in_size + (2 * padding) - kernel_size) / stride + 1;
 
   at::Tensor output = at::zeros({batch_size, n_channels, out_size, out_size}, input.options());
 
