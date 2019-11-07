@@ -124,7 +124,7 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
 template <typename T>
 int DCNForward(at::Tensor input, at::Tensor weight,
                at::Tensor offset,
-               at::Tensor columns, at::Tensor ones
+               at::Tensor columns, at::Tensor ones,
                int dW, int dH, int padW, int padH,
                int dilationW, int dilationH, int group,
                int deformable_group, int im2col_step, at::Tensor output) {
