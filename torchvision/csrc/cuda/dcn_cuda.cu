@@ -46,11 +46,6 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
            "kernel size should be greater than zero, but got kH: %d kW: %d", kH,
            kW);
 
-  AT_CHECK((weight.size(2) == kH && weight.size(3) == kW),
-           "kernel size should be consistent with weight, ",
-           "but got kH: %d kW: %d weight.size(2): %d, weight.size(3): %d", kH,
-           kW, weight.size(2), weight.size(3));
-
   AT_CHECK(dW > 0 && dH > 0,
            "stride should be greater than zero, but got dH: %d dW: %d", dH, dW);
 
@@ -60,6 +55,9 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
       dilationH, dilationW);
 
   int ndim = input.ndimension();
+  AT_CHECK(ndim == 3 || ndim == 4, "3D or 4D input tensor expected but got: %s",
+           ndim);
+
   int dimf = 0;
   int dimh = 1;
   int dimw = 2;
@@ -69,9 +67,6 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
     dimh++;
     dimw++;
   }
-
-  AT_CHECK(ndim == 3 || ndim == 4, "3D or 4D input tensor expected but got: %s",
-           ndim);
 
   long nInputPlane = weight.size(1) * group;
   long inputHeight = input.size(dimh);
@@ -125,9 +120,9 @@ template <typename T>
 int DCNForward(at::Tensor input, at::Tensor weight,
                at::Tensor offset,
                at::Tensor columns, at::Tensor ones,
-               int dW, int dH, int padW, int padH,
-               int dilationW, int dilationH, int group,
-               int deformable_group, int im2col_step, at::Tensor output) {
+               const int dW, const int dH, const int padW, const int padH,
+               const int dilationW, const int dilationH, const int group,
+               const int deformable_group, const int im2col_step, at::Tensor output) {
   // todo: resize columns to include im2col: done
   // todo: add im2col_step as input
   // todo: add new output buffer and transpose it to output (or directly
