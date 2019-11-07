@@ -117,12 +117,15 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
 }
 
 template <typename T>
-__global__ int DCNForward(at::Tensor input, at::Tensor weight,
-               at::Tensor offset,
-               at::Tensor columns, at::Tensor ones,
-               const int dW, const int dH, const int padW, const int padH,
-               const int dilationW, const int dilationH, const int group,
-               const int deformable_group, const int im2col_step, at::Tensor output) {
+__global__ int DCNForward(
+               const T* input,
+               const T* weight,
+               const T* offset,
+               const T* columns,
+               const T* ones,
+               int dW, int dH, int padW, int padH,
+               int dilationW, int dilationH, int group,
+               int deformable_group, int im2col_step, T* output) {
   // todo: resize columns to include im2col: done
   // todo: add im2col_step as input
   // todo: add new output buffer and transpose it to output (or directly
