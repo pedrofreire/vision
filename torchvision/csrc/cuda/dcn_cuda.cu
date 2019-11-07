@@ -634,7 +634,7 @@ __global__ void DCNForward(
 at::Tensor DCN_forward_cuda(
     const at::Tensor& input,
     const at::Tensor& offset,
-    const at::Tensor& weights,
+    const at::Tensor& weight,
     const int stride,
     const int padding,
     const int dilation,
@@ -646,9 +646,9 @@ at::Tensor DCN_forward_cuda(
   at::cuda::CUDAGuard device_guard(input.device());
 
   auto batch_size = input.size(0);
-  auto n_channels = weights.size(0);
+  auto n_channels = weight.size(0);
   auto in_size = input.size(2);
-  auto kernel_size = dilation * (weights.size(2) - 1) - 1;
+  auto kernel_size = dilation * (weight.size(2) - 1) - 1;
   auto out_size = (in_size + (2 * padding) - kernel_size) / stride + 1;
 
   at::Tensor output = at::zeros({batch_size, n_channels, out_size, out_size}, input.options());
@@ -672,7 +672,7 @@ at::Tensor DCN_forward_cuda(
   AT_DISPATCH_FLOATING_TYPES_AND_HALF(input.type(), "DCN_forward", [&] {
     DCNForward<scalar_t><<<1, 1, 0, stream>>>(
         input.contiguous().data_ptr<scalar_t>(),
-        weights.contiguous().data_ptr<scalar_t>(),
+        weight.contiguous().data_ptr<scalar_t>(),
         offset.contiguous().data_ptr<scalar_t>(),
         buf0.contiguous().data_ptr<scalar_t>(),
         buf1.contiguous().data_ptr<scalar_t>(),
