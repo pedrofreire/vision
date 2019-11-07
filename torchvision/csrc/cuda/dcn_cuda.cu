@@ -123,16 +123,18 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
 
 template <typename T>
 int DCNForward(at::Tensor input, at::Tensor weight,
-               at::Tensor offset, at::Tensor output,
-               at::Tensor columns, at::Tensor ones, int kW,
-               int kH, int dW, int dH, int padW, int padH,
+               at::Tensor offset,
+               at::Tensor columns, at::Tensor ones
+               int dW, int dH, int padW, int padH,
                int dilationW, int dilationH, int group,
-               int deformable_group, int im2col_step) {
+               int deformable_group, int im2col_step, at::Tensor output) {
   // todo: resize columns to include im2col: done
   // todo: add im2col_step as input
   // todo: add new output buffer and transpose it to output (or directly
   // transpose output) todo: possibly change data indexing because of
   // parallel_imgs
+  int kH = weights.size(2);
+  int kW = weights.size(3);
 
   shape_check(input, offset, NULL, weight, kH, kW, dH, dW, padH, padW,
               dilationH, dilationW, group, deformable_group);
@@ -285,8 +287,6 @@ at::Tensor DCN_forward_cuda(
         offset.contiguous().data_ptr<scalar_t>(),
         buf0.contiguous().data_ptr<scalar_t>(),
         buf1.contiguous().data_ptr<scalar_t>(),
-        weights.size(3),
-        weights.size(2),
         stride,
         stride,
         padding,
