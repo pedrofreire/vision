@@ -121,6 +121,7 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
   }
 }
 
+template <typename T>
 int DCNForward(at::Tensor input, at::Tensor weight,
                at::Tensor offset, at::Tensor output,
                at::Tensor columns, at::Tensor ones, int kW,
