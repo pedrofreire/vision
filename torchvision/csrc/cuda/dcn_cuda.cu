@@ -117,7 +117,7 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
 }
 
 template <typename T>
-int DCNForward(at::Tensor input, at::Tensor weight,
+__global__ int DCNForward(at::Tensor input, at::Tensor weight,
                at::Tensor offset,
                at::Tensor columns, at::Tensor ones,
                const int dW, const int dH, const int padW, const int padH,
