@@ -520,8 +520,8 @@ int deform_conv_forward_cuda(at::Tensor input, at::Tensor weight,
   // transpose output) todo: possibly change data indexing because of
   // parallel_imgs
 
-  int kH = weights.size(3);
-  int kW = weights.size(2);
+  int kH = weight.size(3);
+  int kW = weight.size(2);
 
   shape_check(input, offset, NULL, weight, kH, kW, dH, dW, padH, padW,
               dilationH, dilationW, group, deformable_group);
@@ -656,8 +656,9 @@ at::Tensor DCN_forward_cuda(
   at::Tensor buf0 = at::zeros({1}, input.options());
   at::Tensor buf1 = at::zeros({1}, input.options());
 
-  auto cur_im2col_step = std::min(input.shape[0], im2col_step)
-  TORCH_CHECK(input.shape[0] % cur_im2col_step == 0);
+  int in_size0 = input.size(0);
+  auto cur_im2col_step = std::min(in_size0, im2col_step);
+  TORCH_CHECK(in_size0 % cur_im2col_step == 0);
 
   deform_conv_forward_cuda(
       input, weight, offset, output, buf0, buf1,
@@ -667,8 +668,7 @@ at::Tensor DCN_forward_cuda(
       groups, deformable_groups,
       cur_im2col_step);
 
-  return output;
-
+  /*
   AT_DISPATCH_FLOATING_TYPES_AND_HALF(input.type(), "DCN_forward", [&] {
     DCNForward<scalar_t><<<1, 1, 0, stream>>>(
         input.contiguous().data_ptr<scalar_t>(),
@@ -688,6 +688,7 @@ at::Tensor DCN_forward_cuda(
         output.data_ptr<scalar_t>());
   });
   AT_CUDA_CHECK(cudaGetLastError());
+  */
   return output;
 }
 // */
