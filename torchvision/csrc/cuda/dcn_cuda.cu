@@ -48,54 +48,7 @@ at::Tensor DCN_forward_cuda(
     const int groups,
     const int deformable_groups,
     const int im2col_step) {
-  AT_ASSERTM(input.device().is_cuda(), "input must be a CUDA tensor");
-
-  at::cuda::CUDAGuard device_guard(input.device());
-
-  auto batch_size = input.size(0);
-  auto n_channels = weight.size(0);
-  auto in_size = input.size(2);
-  auto kernel_size = dilation * (weight.size(2) - 1) - 1;
-  auto out_size = (in_size + (2 * padding) - kernel_size) / stride + 1;
-
   at::Tensor output = at::zeros({batch_size, n_channels, out_size, out_size}, input.options());
-
-  at::Tensor buf0 = at::zeros({1}, input.options());
-  at::Tensor buf1 = at::zeros({1}, input.options());
-
-  int in_size0 = input.size(0);
-  auto cur_im2col_step = std::min(in_size0, im2col_step);
-  TORCH_CHECK(in_size0 % cur_im2col_step == 0);
-
-  deform_conv_forward_cuda(
-      input, weight, offset, output, buf0, buf1,
-      stride, stride,
-      padding, padding,
-      dilation, dilation,
-      groups, deformable_groups,
-      cur_im2col_step);
-
-  /*
-  AT_DISPATCH_FLOATING_TYPES_AND_HALF(input.type(), "DCN_forward", [&] {
-    DCNForward<scalar_t><<<1, 1, 0, stream>>>(
-        input.contiguous().data_ptr<scalar_t>(),
-        weight.contiguous().data_ptr<scalar_t>(),
-        offset.contiguous().data_ptr<scalar_t>(),
-        buf0.contiguous().data_ptr<scalar_t>(),
-        buf1.contiguous().data_ptr<scalar_t>(),
-        stride,
-        stride,
-        padding,
-        padding,
-        dilation,
-        dilation,
-        groups,
-        deformable_groups,
-        im2col_step,
-        output.data_ptr<scalar_t>());
-  });
-  AT_CUDA_CHECK(cudaGetLastError());
-  */
   return output;
 }
 // */
