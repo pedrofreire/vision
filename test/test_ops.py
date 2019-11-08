@@ -1231,7 +1231,7 @@ class DCNTester(unittest.TestCase):
         self.assertEqual(res, 100)
 
     def test_backward_cpu(self):
-        x = 10 * torch.ones(1, 1, 5, 5, device=torch.device('cpu'), dtype=torch.float64, requires_grad=True, dtype=torch.float64)
+        x = 10 * torch.ones(1, 1, 5, 5, requires_grad=True, device=torch.device('cpu'), dtype=torch.float64)
         offset = torch.zeros(1, 8, 4, 4, device=torch.device('cpu'), dtype=torch.float64)
         weight = torch.zeros(1, 1, 2, 2, device=torch.device('cpu'), dtype=torch.float64)
 
