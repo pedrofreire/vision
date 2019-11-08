@@ -1223,7 +1223,7 @@ class NMSTester(unittest.TestCase):
 
 
 class DCNTester(unittest.TestCase):
-    def expected_fn(x, offsets, weights, stride=1, padding=0, dilation=1,
+    def expected_fn(self, x, offsets, weights, stride=1, padding=0, dilation=1,
                     groups=1, deformable_groups=1, im2col_step=1):
         batch_sz, n_channels_in, in_sz, _ = x.shape
 

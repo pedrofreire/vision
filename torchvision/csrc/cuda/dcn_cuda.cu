@@ -577,8 +577,8 @@ int deform_conv_forward_cuda(at::Tensor input, at::Tensor weight,
     weight = weight.view({group, weight.size(0) / group, weight.size(1),
                           weight.size(2), weight.size(3)});
 
-    std::cout << "columns:\n";
-    std::cout << columns << "\n\n";
+    // std::cout << "columns:\n";
+    // std::cout << columns << "\n\n";
 
     for (int g = 0; g < group; g++) {
       output_buffer[elt][g] = output_buffer[elt][g]
@@ -598,8 +598,8 @@ int deform_conv_forward_cuda(at::Tensor input, at::Tensor weight,
   output.copy_(output_buffer);
   output = output.view({batchSize, nOutputPlane, outputHeight, outputWidth});
 
-  std::cout << "output:\n";
-  std::cout << output << "\n\n";
+  // std::cout << "output:\n";
+  // std::cout << output << "\n\n";
 
   input = input.view({batchSize, nInputPlane, inputHeight, inputWidth});
   offset = offset.view(
