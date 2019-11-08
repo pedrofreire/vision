@@ -6,12 +6,7 @@
 
 #include "cuda_helpers.h"
 
-
-
-
-
-
-
+#include <iostream>
 
 
 using namespace at;
@@ -582,6 +577,9 @@ int deform_conv_forward_cuda(at::Tensor input, at::Tensor weight,
     weight = weight.view({group, weight.size(0) / group, weight.size(1),
                           weight.size(2), weight.size(3)});
 
+    std::cout << "columns:\n";
+    std::cout << columns << "\n\n";
+
     for (int g = 0; g < group; g++) {
       output_buffer[elt][g] = output_buffer[elt][g]
                                   .flatten(1)
@@ -599,6 +597,9 @@ int deform_conv_forward_cuda(at::Tensor input, at::Tensor weight,
   output_buffer.transpose_(1, 2);
   output.copy_(output_buffer);
   output = output.view({batchSize, nOutputPlane, outputHeight, outputWidth});
+
+  std::cout << "output:\n";
+  std::cout << output << "\n\n";
 
   input = input.view({batchSize, nInputPlane, inputHeight, inputWidth});
   offset = offset.view(
@@ -642,8 +643,6 @@ at::Tensor DCN_forward_cuda(
     const int deformable_groups,
     const int im2col_step) {
   AT_ASSERTM(input.device().is_cuda(), "input must be a CUDA tensor");
-
-  at::cuda::CUDAGuard device_guard(input.device());
 
   auto batch_size = input.size(0);
   auto n_channels = weight.size(0);
