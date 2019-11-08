@@ -1246,7 +1246,7 @@ class DCNTester(unittest.TestCase):
         x = 10 * torch.ones(1, 1, 5, 5, device=torch.device('cuda'), dtype=torch.float64)
         offset = torch.zeros(1, 8, 4, 4, device=torch.device('cuda'), dtype=torch.float64)
         weight = torch.zeros(1, 1, 2, 2, device=torch.device('cuda'), dtype=torch.float64)
-        expected = torch.zeros(1, 1, 4, 4, device=torch.device('cpu'), dtype=torch.float64)
+        expected = torch.zeros(1, 1, 4, 4, device=torch.device('cuda'), dtype=torch.float64)
         res = ops.dcn(x, offset, weight)
         self.assertTrue(torch.allclose(res, expected))
 
