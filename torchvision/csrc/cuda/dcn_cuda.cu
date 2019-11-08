@@ -48,7 +48,7 @@ at::Tensor DCN_forward_cuda(
     const int groups,
     const int deformable_groups,
     const int im2col_step) {
-  at::Tensor output = at::zeros({batch_size, n_channels, out_size, out_size}, input.options());
+  at::Tensor output = at::zeros({1}, input.options());
   return output;
 }
 // */
