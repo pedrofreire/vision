@@ -1226,7 +1226,7 @@ class DCNTester(unittest.TestCase):
     def test_forward_cpu(self):
         x = 10 * torch.ones(1, 1, 5, 5, device=torch.device('cpu'), dtype=torch.float64)
         offset = torch.zeros(1, 8, 4, 4, device=torch.device('cpu'), dtype=torch.float64)
-        weight = torch.zeros(1, 1, 2, 2, device=torch.device('cpu'), dtype=torch.float64)
+        weight = torch.ones(1, 1, 2, 2, device=torch.device('cpu'), dtype=torch.float64)
         expected = torch.ones(1, 1, 4, 4, device=torch.device('cpu'), dtype=torch.float64)
         res = ops.dcn(x, offset, weight)
         self.assertTrue(torch.allclose(res, expected), '\n{}\n\n{}'.format(res, expected))
@@ -1234,7 +1234,7 @@ class DCNTester(unittest.TestCase):
     def test_backward_cpu(self):
         x = 10 * torch.ones(1, 1, 5, 5, requires_grad=True, device=torch.device('cpu'), dtype=torch.float64)
         offset = torch.zeros(1, 8, 4, 4, device=torch.device('cpu'), dtype=torch.float64)
-        weight = torch.zeros(1, 1, 2, 2, device=torch.device('cpu'), dtype=torch.float64)
+        weight = torch.ones(1, 1, 2, 2, device=torch.device('cpu'), dtype=torch.float64)
 
         def fn(z):
             return ops.dcn(z, offset, weight)
@@ -1245,7 +1245,7 @@ class DCNTester(unittest.TestCase):
     def test_forward_cuda(self):
         x = 10 * torch.ones(1, 1, 5, 5, device=torch.device('cuda'), dtype=torch.float64)
         offset = torch.zeros(1, 8, 4, 4, device=torch.device('cuda'), dtype=torch.float64)
-        weight = torch.zeros(1, 1, 2, 2, device=torch.device('cuda'), dtype=torch.float64)
+        weight = torch.ones(1, 1, 2, 2, device=torch.device('cuda'), dtype=torch.float64)
         expected = torch.ones(1, 1, 4, 4, device=torch.device('cuda'), dtype=torch.float64)
         res = ops.dcn(x, offset, weight)
         self.assertTrue(torch.allclose(res, expected), '\n{}\n\n{}'.format(res, expected))
@@ -1254,7 +1254,7 @@ class DCNTester(unittest.TestCase):
     def test_backward_cuda(self):
         x = 10 * torch.ones(1, 1, 5, 5, requires_grad=True, device=torch.device('cuda'), dtype=torch.float64)
         offset = torch.zeros(1, 8, 4, 4, device=torch.device('cuda'), dtype=torch.float64)
-        weight = torch.zeros(1, 1, 2, 2, device=torch.device('cuda'), dtype=torch.float64)
+        weight = torch.ones(1, 1, 2, 2, device=torch.device('cuda'), dtype=torch.float64)
 
         def fn(z):
             return ops.dcn(z, offset, weight)
