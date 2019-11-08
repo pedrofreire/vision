@@ -1229,7 +1229,7 @@ class DCNTester(unittest.TestCase):
         weight = torch.zeros(1, 1, 2, 2, device=torch.device('cpu'), dtype=torch.float64)
         expected = torch.zeros(1, 1, 4, 4, device=torch.device('cpu'), dtype=torch.float64)
         res = ops.dcn(x, offset, weight)
-        self.assertTrue(torch.allclose(res, expected))
+        self.assertTrue(torch.allclose(res, expected), '\n{}\n\n{}'.format(res, expected))
 
     def test_backward_cpu(self):
         x = 10 * torch.ones(1, 1, 5, 5, requires_grad=True, device=torch.device('cpu'), dtype=torch.float64)
@@ -1248,7 +1248,7 @@ class DCNTester(unittest.TestCase):
         weight = torch.zeros(1, 1, 2, 2, device=torch.device('cuda'), dtype=torch.float64)
         expected = torch.zeros(1, 1, 4, 4, device=torch.device('cuda'), dtype=torch.float64)
         res = ops.dcn(x, offset, weight)
-        self.assertTrue(torch.allclose(res, expected))
+        self.assertTrue(torch.allclose(res, expected), '\n{}\n\n{}'.format(res, expected))
 
     @unittest.skipIf(not torch.cuda.is_available(), "CUDA unavailable")
     def test_backward_cuda(self):
