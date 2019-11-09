@@ -1234,14 +1234,14 @@ class DCNTester(unittest.TestCase):
         out_sz = ((in_sz + 2*padding) - (kernel_sz - 1) - 1) // stride + 1
 
         out = torch.zeros(batch_sz, n_channels_out, out_sz, out_sz)
-
         for i in range(out_sz):
             for j in range(out_sz):
                 for di in range(kernel_sz):
                     for dj in range(kernel_sz):
-                        xk = i + di + offsets[0, w2*di + dj, i, j]
-                        out[0, 0, i, j] += weights[0, 0, di, dj] * x[0, 0, i + di, i + dj]
-
+                        pi = i + di + offsets[0, w2*di + dj, i, j]
+                        pj = j + dj + offsets[0, w2*di + dj + 1, i, j]
+                        val = bilinear_interpolate(x, in_sz, in_sz, pi, pj)
+                        out[0, 0, i, j] += weights[0, 0, di, dj] * val
         return out
 
 
@@ -1269,8 +1269,8 @@ class DCNTester(unittest.TestCase):
     def test_forward_cuda(self):
         x = 10 * torch.rand(1, 1, 5, 5, device=torch.device('cuda'), dtype=torch.float64)
         offset = torch.zeros(1, 8, 4, 4, device=torch.device('cuda'), dtype=torch.float64)
-        weight = torch.ones(1, 1, 2, 2, device=torch.device('cuda'), dtype=torch.float64)
-        
+        weight = torch.randn(1, 1, 2, 2, device=torch.device('cuda'), dtype=torch.float64)
+
         res = ops.dcn(x, offset, weight)
         expected = self.expected_fn(x, offset, weight).to(device=torch.device('cuda'), dtype=torch.float64)
 
