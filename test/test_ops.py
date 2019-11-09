@@ -1226,6 +1226,9 @@ class DCNTester(unittest.TestCase):
     def expected_fn(self, x, offsets, weights, stride=1, padding=0, dilation=1,
                     groups=1, deformable_groups=1, im2col_step=1):
         batch_sz, n_channels_in, in_sz, _ = x.shape
+        n_channels_out = 1
+
+        w2 = weights.shape[2]
 
         kernel_sz = (weights.shape[2] - 1) * dilation + 1
         out_sz = ((in_sz + 2*padding) - (kernel_sz - 1) - 1) // stride + 1
@@ -1236,6 +1239,7 @@ class DCNTester(unittest.TestCase):
             for j in range(out_sz):
                 for di in range(kernel_sz):
                     for dj in range(kernel_sz):
+                        xk = i + di + offsets[0, w2*di + dj, i, j]
                         out[0, 0, i, j] += weights[0, 0, di, dj] * x[0, 0, i + di, i + dj]
 
         return out
@@ -1245,8 +1249,10 @@ class DCNTester(unittest.TestCase):
         x = 10 * torch.ones(1, 1, 5, 5, device=torch.device('cpu'), dtype=torch.float64)
         offset = torch.zeros(1, 8, 4, 4, device=torch.device('cpu'), dtype=torch.float64)
         weight = torch.ones(1, 1, 2, 2, device=torch.device('cpu'), dtype=torch.float64)
-        expected = torch.ones(1, 1, 4, 4, device=torch.device('cpu'), dtype=torch.float64)
+
         res = ops.dcn(x, offset, weight)
+        expected = self.expected_fn(x, offset, weight).to(device=torch.device('cpu'), dtype=torch.float64)
+
         self.assertTrue(torch.allclose(res, expected), '\n{}\n\n{}'.format(res, expected))
 
     def test_backward_cpu(self):
@@ -1264,9 +1270,10 @@ class DCNTester(unittest.TestCase):
         x = 10 * torch.rand(1, 1, 5, 5, device=torch.device('cuda'), dtype=torch.float64)
         offset = torch.zeros(1, 8, 4, 4, device=torch.device('cuda'), dtype=torch.float64)
         weight = torch.ones(1, 1, 2, 2, device=torch.device('cuda'), dtype=torch.float64)
-        # expected = torch.ones(1, 1, 4, 4, device=torch.device('cuda'), dtype=torch.float64)
+        
         res = ops.dcn(x, offset, weight)
-        expected = self.expected_fn(x, offset, weight)
+        expected = self.expected_fn(x, offset, weight).to(device=torch.device('cuda'), dtype=torch.float64)
+
         self.assertTrue(torch.allclose(res, expected), '\n{}\n\n{}'.format(res, expected))
 
     @unittest.skipIf(not torch.cuda.is_available(), "CUDA unavailable")
