@@ -1,4 +1,5 @@
 import numpy as np
+import math
 import torch
 from torch.autograd import gradcheck
 from torch.nn.modules.utils import _pair
@@ -536,9 +537,9 @@ def bilinear_interpolate_2(data, y, x):
 
     val = 0
     for wx, px in zip((wx_l, wx_h), (x_low, x_high)):
-        for wy, y in zip((wy_l, wy_h), (y_low, y_high)):
-            if 0 <= y < height and 0 <= x < width:
-                val += wx * wy * data[y, x]
+        for wy, py in zip((wy_l, wy_h), (y_low, y_high)):
+            if 0 <= py < height and 0 <= px < width:
+                val += wx * wy * data[py, px]
     return val
 
 
@@ -1284,13 +1285,13 @@ class DCNTester(unittest.TestCase):
     @unittest.skipIf(not torch.cuda.is_available(), "CUDA unavailable")
     def test_forward_cuda(self):
         x = 10 * torch.rand(1, 1, 5, 5, device=torch.device('cuda'), dtype=torch.float64)
-        offset = torch.zeros(1, 8, 4, 4, device=torch.device('cuda'), dtype=torch.float64)
-        weight = torch.randn(1, 1, 2, 2, device=torch.device('cuda'), dtype=torch.float64)
+        offset = torch.ones(1, 8, 4, 4, device=torch.device('cuda'), dtype=torch.float64)
+        weight = torch.ones(1, 1, 2, 2, device=torch.device('cuda'), dtype=torch.float64)
 
         res = ops.dcn(x, offset, weight)
         expected = self.expected_fn(x, offset, weight).to(device=torch.device('cuda'), dtype=torch.float64)
 
-        self.assertTrue(torch.allclose(res, expected), '\n{}\n\n{}'.format(res, expected))
+        self.assertTrue(torch.allclose(res, expected), '\nx:\n{}\nres:\n{}\nexp:\n{}'.format(x, res, expected))
 
     @unittest.skipIf(not torch.cuda.is_available(), "CUDA unavailable")
     def test_backward_cuda(self):
