@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from torch.autograd import gradcheck
+from torch.nn.modules.utils import _pair
 
 from torchvision import ops
 
@@ -489,7 +490,8 @@ class RoIAlignTester(unittest.TestCase):
                         'gradcheck failed for scripted roi_align on CUDA')
 
 
-def bilinear_interpolate(data, height, width, y, x):
+def bilinear_interpolate(data, y, x):
+    height, width = data.shape[-2:]
     if y < -1.0 or y > height or x < -1.0 or x > width:
         return 0.
 
@@ -517,10 +519,10 @@ def bilinear_interpolate(data, height, width, y, x):
     lx = x - x_low
     hy, hx = 1. - ly, 1. - lx
 
-    v1 = data[y_low * width + x_low]
-    v2 = data[y_low * width + x_high]
-    v3 = data[y_high * width + x_low]
-    v4 = data[y_high * width + x_high]
+    v1 = data[y_low, x_low]
+    v2 = data[y_low, x_high]
+    v3 = data[y_high, x_low]
+    v4 = data[y_high, x_high]
     w1, w2, w3, w4 = hy * hx, hy * lx, ly * hx, ly * lx
 
     return w1 * v1 + w2 * v2 + w3 * v3 + w4 * v4
@@ -564,12 +566,7 @@ class PSRoIAlignTester(unittest.TestCase):
                                 y = start_h + (iy + 0.5) * bin_h / float(roi_bin_grid_h)
                                 for ix in range(0, roi_bin_grid_w):
                                     x = start_w + (ix + 0.5) * bin_w / float(roi_bin_grid_w)
-                                    val += bilinear_interpolate(
-                                        in_data[n, c_in, :, :].flatten(),
-                                        in_data.size(-2),
-                                        in_data.size(-1),
-                                        y, x
-                                    )
+                                    val += bilinear_interpolate(in_data[n, c_in, :, :], y, x)
                             count = roi_bin_grid_h * roi_bin_grid_w
                             out_data[r, c_out, j, i] = val / count
                             c_in += 1
@@ -1224,23 +1221,28 @@ class NMSTester(unittest.TestCase):
 
 class DCNTester(unittest.TestCase):
     def expected_fn(self, x, offsets, weights, stride=1, padding=0, dilation=1,
-                    groups=1, deformable_groups=1, im2col_step=1):
-        batch_sz, n_channels_in, in_sz, _ = x.shape
+                    groups=1, deformable_groups=1):
+        stride_h, stride_w = _pair(stride)
+        pad_h, pad_w = _pair(padding)
+        dil_h, dil_w = _pair(dilation)
+        weights_h, weights_w = weights.shape[-2:]
+
+        batch_sz, n_channels_in, in_h, in_w = x.shape
         n_channels_out = 1
 
-        w2 = weights.shape[2]
+        kernel_h = (weights_h - 1) * dil_h + 1
+        kernel_w = (weights_w - 1) * dil_w + 1
+        out_h = ((in_h + 2*pad_h) - (weights_h - 1) - 1) // stride_h + 1
+        out_w = ((in_w + 2*pad_w) - (weights_w - 1) - 1) // stride_w + 1
 
-        kernel_sz = (weights.shape[2] - 1) * dilation + 1
-        out_sz = ((in_sz + 2*padding) - (kernel_sz - 1) - 1) // stride + 1
-
-        out = torch.zeros(batch_sz, n_channels_out, out_sz, out_sz)
-        for i in range(out_sz):
-            for j in range(out_sz):
-                for di in range(kernel_sz):
-                    for dj in range(kernel_sz):
-                        pi = i + di + offsets[0, w2*di + dj, i, j]
-                        pj = j + dj + offsets[0, w2*di + dj + 1, i, j]
-                        val = bilinear_interpolate(x, in_sz, in_sz, pi, pj)
+        out = torch.zeros(batch_sz, n_channels_out, out_h, out_w)
+        for i in range(out_h):
+            for j in range(out_w):
+                for di in range(weights_h):
+                    for dj in range(weights_w):
+                        pi = i + di + offsets[0, weights_h*di + dj, i, j]
+                        pj = j + dj + offsets[0, weights_h*di + dj + 1, i, j]
+                        val = bilinear_interpolate(x[0, 0, :, :], pi, pj)
                         out[0, 0, i, j] += weights[0, 0, di, dj] * val
         return out
 
