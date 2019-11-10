@@ -495,37 +495,51 @@ def bilinear_interpolate(data, y, x):
     if y < -1.0 or y > height or x < -1.0 or x > width:
         return 0.
 
-    if y <= 0:
-        y = 0.
-    if x <= 0:
-        x = 0.
+    y = min(max(0, y), height - 1)
+    x = min(max(0, x), width - 1)
 
-    y_low, x_low = int(y), int(x)
-    y_high, x_high = 0, 0
+    y_low = int(y)
+    y_high = min(y_low + 1, height - 1)
 
-    if y_low >= height - 1:
-        y_high = y_low = height - 1
-        y = float(y_low)
-    else:
-        y_high = y_low + 1
+    x_low = int(x)
+    x_high = min(x_low + 1, width - 1)
 
-    if x_low >= width - 1:
-        x_high = x_low = width - 1
-        x = float(x_low)
-    else:
-        x_high = x_low + 1
+    wy_h = y - y_low
+    wy_l = 1 - wy_h
 
-    ly = y - y_low
-    lx = x - x_low
-    hy, hx = 1. - ly, 1. - lx
+    wx_h = x - x_low
+    wx_l = 1 - wx_h
 
-    v1 = data[y_low, x_low]
-    v2 = data[y_low, x_high]
-    v3 = data[y_high, x_low]
-    v4 = data[y_high, x_high]
-    w1, w2, w3, w4 = hy * hx, hy * lx, ly * hx, ly * lx
+    val = 0
+    for wx, x in zip((wx_l, wx_h), (x_low, x_high)):
+        for wy, y in zip((wy_l, wy_h), (y_low, y_high)):
+            val += wx * wy * data[y, x]
+    return val
 
-    return w1 * v1 + w2 * v2 + w3 * v3 + w4 * v4
+
+def bilinear_interpolate_2(data, y, x):
+    height, width = data.shape[-2:]
+    if y < -1.0 or y > height or x < -1.0 or x > width:
+        return 0.
+
+    y_low = int(math.floor(y))
+    x_low = int(math.floor(x))
+
+    y_high = y_low + 1
+    x_high = x_low + 1
+
+    wy_h = y - y_low
+    wx_h = x - x_low
+
+    wy_l = 1 - wy_h
+    wx_l = 1 - wx_h
+
+    val = 0
+    for wx, px in zip((wx_l, wx_h), (x_low, x_high)):
+        for wy, y in zip((wy_l, wy_h), (y_low, y_high)):
+            if 0 <= y < height and 0 <= x < width:
+                val += wx * wy * data[y, x]
+    return val
 
 
 class PSRoIAlignTester(unittest.TestCase):
@@ -1242,7 +1256,7 @@ class DCNTester(unittest.TestCase):
                     for dj in range(weights_w):
                         pi = i + di + offsets[0, weights_h*di + dj, i, j]
                         pj = j + dj + offsets[0, weights_h*di + dj + 1, i, j]
-                        val = bilinear_interpolate(x[0, 0, :, :], pi, pj)
+                        val = bilinear_interpolate_2(x[0, 0, :, :], pi, pj)
                         out[0, 0, i, j] += weights[0, 0, di, dj] * val
         return out
 
