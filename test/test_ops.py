@@ -1285,8 +1285,8 @@ class DCNTester(unittest.TestCase):
     @unittest.skipIf(not torch.cuda.is_available(), "CUDA unavailable")
     def test_forward_cuda(self):
         x = 10 * torch.rand(1, 1, 5, 5, device=torch.device('cuda'), dtype=torch.float64)
-        offset = torch.ones(1, 8, 4, 4, device=torch.device('cuda'), dtype=torch.float64)
-        weight = torch.ones(1, 1, 2, 2, device=torch.device('cuda'), dtype=torch.float64)
+        offset = torch.randn(1, 8, 4, 4, device=torch.device('cuda'), dtype=torch.float64)
+        weight = torch.randn(1, 1, 2, 2, device=torch.device('cuda'), dtype=torch.float64)
 
         res = ops.dcn(x, offset, weight)
         expected = self.expected_fn(x, offset, weight).to(device=torch.device('cuda'), dtype=torch.float64)
