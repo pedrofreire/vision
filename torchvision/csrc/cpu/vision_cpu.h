@@ -89,9 +89,9 @@ at::Tensor DCN_forward_cpu(
     const at::Tensor& input,
     const at::Tensor& offset,
     const at::Tensor& weights,
-    const std::pair<int, int>& stride,
-    const std::pair<int, int>& pad,
-    const std::pair<int, int>& dilation,
+    const std::pair<int64_t, int64_t>& stride,
+    const std::pair<int64_t, int64_t>& pad,
+    const std::pair<int64_t, int64_t>& dilation,
     const int groups,
     const int deformable_groups,
     const int im2col_step);
