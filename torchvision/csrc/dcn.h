@@ -10,23 +10,23 @@ at::Tensor DCN_forward(
     const Tensor& input,
     const Tensor& offset,
     const Tensor& weights,
-    int stride_h, int stride_w,
-    int pad_h, int pad_w,
-    int dilation_h, int dilation_w,
-    int groups,
-    int deformable_groups,
-    int im2col_step    
+    const std::pair<int>& stride,
+    const std::pair<int>& pad,
+    const std::pair<int>& dilation,
+    const int groups,
+    const int deformable_groups,
+    const int im2col_step    
     ) {
   if (input.type().is_cuda()) {
 #ifdef WITH_CUDA
-    return DCN_forward_cuda(input, offset, weights, stride_h, stride_w, pad_h, pad_w,
-                      dilation_h, dilation_w, groups, deformable_groups, im2col_step);
+    return DCN_forward_cuda(input, offset, weights, stride, pad,
+                      dilation, groups, deformable_groups, im2col_step);
 #else
     AT_ERROR("Not compiled with GPU support");
 #endif
   }
-  return DCN_forward_cpu(input, offset, weights, stride_h, stride_w, pad_h, pad_w,
-                    dilation_h, dilation_w, groups, deformable_groups, im2col_step);
+  return DCN_forward_cpu(input, offset, weights, stride, pad,
+                    dilation, groups, deformable_groups, im2col_step);
 }
 
 at::Tensor DCN_backward(const at::Tensor& grad, const at::Tensor& input) {
@@ -60,9 +60,9 @@ class DCNFunction : public torch::autograd::Function<DCNFunction> {
       int64_t deformable_groups,
       int64_t im2col_step) {
     auto output = DCN_forward(input, offset, weights,
-        stride_h, stride_w,
-        pad_h, pad_w,
-        dilation_h, dilation_w,
+        {stride_h, stride_w},
+        {pad_h, pad_w},
+        {dilation_h, dilation_w},
         groups, deformable_groups, im2col_step);
     ctx->save_for_backward({input, offset, weights});
     return {output,};
