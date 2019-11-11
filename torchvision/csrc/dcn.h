@@ -13,9 +13,9 @@ at::Tensor DCN_forward(
     int stride_h, int stride_w,
     int pad_h, int pad_w,
     int dilation_h, int dilation_w,
-    const int groups,
-    const int deformable_groups,
-    const int im2col_step    
+    int groups,
+    int deformable_groups,
+    int im2col_step    
     ) {
   if (input.type().is_cuda()) {
 #ifdef WITH_CUDA
@@ -90,7 +90,7 @@ Tensor dcn(
     int64_t groups,
     int64_t deformable_groups,
     int64_t im2col_step) {
-  auto result = DCNFunction::apply(input, offset, weights, stride, pad_h, pad_w,
-                          dilation_h, dilation_w, groups_h, groups_w, deformable_groups, im2col_step);
+  auto result = DCNFunction::apply(input, offset, weights, stride_h, stride_w, pad_h, pad_w,
+                          dilation_h, dilation_w, groups, deformable_groups, im2col_step);
   return result[0];
 }
