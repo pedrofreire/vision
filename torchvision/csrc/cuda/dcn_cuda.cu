@@ -595,9 +595,9 @@ int get_output_dim(int in_dim, int stride, int pad, int dilation) {
 at::Tensor create_output_tensor(
     const at::Tensor& input,
     int n_channels,
-    std::pair<int> stride,
-    std::pair<int> pad,
-    std::pair<int> dilation
+    std::pair<int, int> stride,
+    std::pair<int, int> pad,
+    std::pair<int, int> dilation
     ) {
   int batch_sz = input.size(0);
   int in_h = input.size(2);
