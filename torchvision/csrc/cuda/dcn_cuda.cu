@@ -514,7 +514,7 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
 
 int deform_conv_forward_cuda(
     at::Tensor input, at::Tensor weight,
-    at::Tensor offset, at::Tensor output,
+    at::Tensor offset, at::Tensor out,
     const std::pair<int, int>& stride,
     const std::pair<int, int>& pad,
     const std::pair<int, int>& dilation,
@@ -546,15 +546,15 @@ int deform_conv_forward_cuda(
   int in_h = input.size(2);
   int in_w = input.size(3);
 
-  int out_channels = output.size(1);
-  int out_h = output.size(2);
-  int out_w = output.size(3);
+  int out_channels = out.size(1);
+  int out_h = out.size(2);
+  int out_w = out.size(3);
 
   // Break batch size into blocks
-  output = output.view({batch_sz / im2col_block, im2col_block, out_channels, out_h, out_w});
+  out = out.view({batch_sz / im2col_block, im2col_block, out_channels, out_h, out_w});
   input = input.view({batch_sz / im2col_block, im2col_block, in_channels, in_h, in_w});
   offset = offset.view({batch_sz / im2col_block, im2col_block, deformable_group * 2 * wt_h * wt_w, out_h, out_w});
-  at::Tensor out_buf = at::zeros({batch_sz / im2col_block, out_channels, im2col_block * out_h, out_w}, output.options());
+  at::Tensor out_buf = at::zeros({batch_sz / im2col_block, out_channels, im2col_block * out_h, out_w}, out.options());
 
   out_buf = out_buf.view({out_buf.size(0), group, out_buf.size(1) / group, out_buf.size(2), out_buf.size(3)}); 
 
@@ -574,7 +574,7 @@ int deform_conv_forward_cuda(
     }
   }
 
-  out_buf = out_buf.view({batch_sz / im2col_block, nOutputPlane, im2col_block, out_h, out_w});
+  out_buf = out_buf.view({batch_sz / im2col_block, out_channels, im2col_block, out_h, out_w});
   out_buf.transpose_(1, 2);
   out.copy_(out_buf);
   out = out.view({batch_sz, out_channels, out_h, out_w});
@@ -615,7 +615,7 @@ at::Tensor create_output_tensor(
   auto out_h = get_output_dim(in_h, stride_h, pad_h, dilation_h);
   auto out_w = get_output_dim(in_w, stride_w, pad_w, dilation_w);
 
-  return at::zeros({batch_size, n_channels, out_h, out_w}, input.options());
+  return at::zeros({batch_sz, n_channels, out_h, out_w}, input.options());
 }
 
 
@@ -631,17 +631,17 @@ at::Tensor DCN_forward_cuda(
     const int im2col_step) {
   AT_ASSERTM(input.device().is_cuda(), "input must be a CUDA tensor");
 
-  auto batch_size = input.size(0);
-  auto n_channels = weight.size(0);
+  int batch_size = input.size(0);
+  int n_channels = weight.size(0);
 
-  auto cur_im2col_step = std::min(batch_size, im2col_step);
+  int cur_im2col_step = std::min(batch_size, im2col_step);
   TORCH_CHECK(batch_size % cur_im2col_step == 0);
 
   auto output = create_output_tensor(input, n_channels, stride, pad, dilation);
 
   deform_conv_forward_cuda(
       input, weight, offset, output,
-      stride, padding, dilation,
+      stride, pad, dilation,
       groups, deformable_groups,
       cur_im2col_step);
 
