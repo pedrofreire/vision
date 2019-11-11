@@ -56,9 +56,9 @@ class DCNFunction : public torch::autograd::Function<DCNFunction> {
       int64_t stride_h, int64_t stride_w,
       int64_t pad_h, int64_t pad_w,
       int64_t dilation_h, int64_t dilation_w,
-      const int64_t groups,
-      const int64_t deformable_groups,
-      const int64_t im2col_step) {
+      int64_t groups,
+      int64_t deformable_groups,
+      int64_t im2col_step) {
     auto output = DCN_forward(input, offset, weights,
         stride.first, stride.second,
         pad.first, pad.second,
@@ -84,14 +84,13 @@ Tensor dcn(
     const Tensor& input,
     const Tensor& offset,
     const Tensor& weights,
-    std::pair<int64_t, int64_t> a,
     int64_t stride_h, int64_t stride_w,
     int64_t pad_h, int64_t pad_w,
     int64_t dilation_h, int64_t dilation_w,
     int64_t groups,
     int64_t deformable_groups,
     int64_t im2col_step) {
-  auto result = DCNFunction::apply(input, offset, weights, stride, pad,
-                          dilation, groups, deformable_groups, im2col_step);
+  auto result = DCNFunction::apply(input, offset, weights, stride, pad_h, pad_w,
+                          dilation_h, dilation_w, groups_h, groups_w, deformable_groups, im2col_step);
   return result[0];
 }
