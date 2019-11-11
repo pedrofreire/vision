@@ -619,9 +619,6 @@ at::Tensor DCN_forward_cuda(
     const at::Tensor& input,
     const at::Tensor& offset,
     const at::Tensor& weight,
-    const std::pair<int, int>& stride,
-    const std::pair<int, int>& pad,
-    const std::pair<int, int>& dilation,
     const int groups,
     const int deformable_groups,
     const int im2col_step) {
