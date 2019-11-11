@@ -90,12 +90,12 @@ at::Tensor DCN_forward_cuda(
     const at::Tensor& input,
     const at::Tensor& offset,
     const at::Tensor& weights,
-    const std::pair<int64_t, int64_t>& stride,
-    const std::pair<int64_t, int64_t>& pad,
-    const std::pair<int64_t, int64_t>& dilation,
-    const int64_t groups,
-    const int64_t deformable_groups,
-    const int64_t im2col_step);
+    int stride_h, int stride_w,
+    int pad_h, int pad_w,
+    int dilation_h, int dilation_w,
+    const int groups,
+    const int deformable_groups,
+    const int im2col_step);
 
 at::Tensor DCN_backward_cuda(
     const at::Tensor& grad,
