@@ -1255,8 +1255,9 @@ class DCNTester(unittest.TestCase):
             for j in range(out_w):
                 for di in range(weights_h):
                     for dj in range(weights_w):
-                        pi = i + di + offsets[0, weights_h*di + dj, i, j]
-                        pj = j + dj + offsets[0, weights_h*di + dj + 1, i, j]
+                        offset_idx = 2 * (weights_h*di + dj)
+                        pi = i + di + offsets[0, offset_idx, i, j]
+                        pj = j + dj + offsets[0, offset_idx + 1, i, j]
                         val = bilinear_interpolate_2(x[0, 0, :, :], pi, pj)
                         out[0, 0, i, j] += weights[0, 0, di, dj] * val
         return out
