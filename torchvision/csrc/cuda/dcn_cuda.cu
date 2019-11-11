@@ -408,7 +408,8 @@ void deformable_col2im_coord(
 
 
 void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
-                 at::Tensor weight, int group, int deformable_group) {
+                 at::Tensor weight, std::pair<int, int> stride, std::pair<int, int> pad,
+                 std::pair<int, int> dilation, int group, int deformable_group) {
   int kW = weight.size(2);
   int kH = weight.size(3);
 
@@ -514,6 +515,9 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
 int deform_conv_forward_cuda(
     at::Tensor input, at::Tensor weight,
     at::Tensor offset, at::Tensor output,
+    const std::pair<int, int>& stride,
+    const std::pair<int, int>& pad,
+    const std::pair<int, int>& dilation,
     int group, int deformable_group, int im2col_block) {
   shape_check(input, offset, NULL, weight, wt_h, wt_w, stride, pad, dilation, group, deformable_group);
 
@@ -619,6 +623,9 @@ at::Tensor DCN_forward_cuda(
     const at::Tensor& input,
     const at::Tensor& offset,
     const at::Tensor& weight,
+    const std::pair<int, int>& stride,
+    const std::pair<int, int>& pad,
+    const std::pair<int, int>& dilation,
     const int groups,
     const int deformable_groups,
     const int im2col_step) {
