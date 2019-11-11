@@ -407,16 +407,22 @@ void deformable_col2im_coord(
 }
 
 
-
-
-
-
-
-
 void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
-                 at::Tensor weight, int kH, int kW, int dH, int dW, int padH,
-                 int padW, int dilationH, int dilationW, int group,
-                 int deformable_group) {
+                 at::Tensor weight, std::pair<int> stride, std::pair<int> pad,
+                 std::pair<int> dilation, int group, int deformable_group) {
+  int kW = weight.size(2);
+  int kH = weight.size(3);
+
+  int dH = stride.first;
+  int dW = stride.second;
+
+  int padH = pad.first;
+  int padW = pad.second;
+
+  int dilationH = dilation.first;
+  int dilationW = dilation.second;
+
+
   AT_CHECK(weight.ndimension() == 4,
            "4D weight tensor (nOutputPlane,nInputPlane,kH,kW) expected, "
            "but got: %s",
@@ -501,144 +507,125 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
              outputHeight, outputWidth, gradOutput->size(dimh),
              gradOutput->size(dimw));
   }
+
+  AT_CHECK((offset.size(0) == input.size(0)), "invalid batch size of offset");
 }
 
-int deform_conv_forward_cuda(at::Tensor input, at::Tensor weight,
-                             at::Tensor offset, at::Tensor output,
-                             at::Tensor columns, at::Tensor ones,
-                             int dW, int dH, int padW, int padH,
-                             int dilationW, int dilationH, int group,
-                             int deformable_group, int im2col_step) {
-  // todo: resize columns to include im2col: done
-  // todo: add im2col_step as input
-  // todo: add new output buffer and transpose it to output (or directly
-  // transpose output) todo: possibly change data indexing because of
-  // parallel_imgs
 
-  int kH = weight.size(3);
-  int kW = weight.size(2);
+int deform_conv_forward_cuda(
+    at::Tensor input, at::Tensor weight,
+    at::Tensor offset, at::Tensor output,
+    const std::pair<int>& stride,
+    const std::pair<int>& pad,
+    const std::pair<int>& dilation,
+    int group, int deformable_group, int im2col_block) {
+  shape_check(input, offset, NULL, weight, wt_h, wt_w, stride, pad, dilation, group, deformable_group);
 
-  shape_check(input, offset, NULL, weight, kH, kW, dH, dW, padH, padW,
-              dilationH, dilationW, group, deformable_group);
   at::DeviceGuard guard(input.device());
   
+  int wt_h = weight.size(3);
+  int wt_w = weight.size(2);
+
+  int stride_h = stride.first;
+  int stride_w = stride.second;
+
+  int pad_h = pad.first;
+  int pad_w = pad.second;
+
+  int dil_h = dilation.first;
+  int dil_w = dilation.second;
+
+  // make args contiguous
   input = input.contiguous();
   offset = offset.contiguous();
   weight = weight.contiguous();
 
-  // todo: assert batchsize dividable by im2col_step
+  // unpack shapes
+  int batch_sz = input.size(0);
+  int in_channels = input.size(1);
+  int in_h = input.size(2);
+  int in_w = input.size(3);
 
-  long batchSize = input.size(0);
-  long nInputPlane = input.size(1);
-  long inputHeight = input.size(2);
-  long inputWidth = input.size(3);
+  int out_channels = output.size(1);
+  int out_h = output.size(2);
+  int out_w = output.size(3);
 
-  long nOutputPlane = weight.size(0);
+  // Break batch size into blocks
+  output = output.view({batch_sz / im2col_block, im2col_block, out_channels, out_h, out_w});
+  input = input.view({batch_sz / im2col_block, im2col_block, in_channels, in_h, in_w});
+  offset = offset.view({batch_sz / im2col_block, im2col_block, deformable_group * 2 * wt_h * wt_w, out_h, out_w});
+  at::Tensor out_buf = at::zeros({batch_sz / im2col_block, out_channels, im2col_block * out_h, out_w}, output.options());
 
-  long outputWidth =
-      (inputWidth + 2 * padW - (dilationW * (kW - 1) + 1)) / dW + 1;
-  long outputHeight =
-      (inputHeight + 2 * padH - (dilationH * (kH - 1) + 1)) / dH + 1;
+  out_buf = out_buf.view({out_buf.size(0), group, out_buf.size(1) / group, out_buf.size(2), out_buf.size(3)}); 
 
-  AT_CHECK((offset.size(0) == batchSize), "invalid batch size of offset");
+  weight = weight.view({group, weight.size(0) / group, weight.size(1), weight.size(2), weight.size(3)});
 
-  output = output.view({batchSize / im2col_step, im2col_step, nOutputPlane,
-                        outputHeight, outputWidth});
-  columns = at::zeros(
-      {nInputPlane * kW * kH, im2col_step * outputHeight * outputWidth},
-      input.options());
-
-  if (ones.ndimension() != 2 ||
-      ones.size(0) * ones.size(1) < outputHeight * outputWidth) {
-    ones = at::ones({outputHeight, outputWidth}, input.options());
-  }
-
-  input = input.view({batchSize / im2col_step, im2col_step, nInputPlane,
-                      inputHeight, inputWidth});
-  offset =
-      offset.view({batchSize / im2col_step, im2col_step,
-                   deformable_group * 2 * kH * kW, outputHeight, outputWidth});
-
-  at::Tensor output_buffer =
-      at::zeros({batchSize / im2col_step, nOutputPlane,
-                 im2col_step * outputHeight, outputWidth},
-                output.options());
-
-  output_buffer = output_buffer.view(
-      {output_buffer.size(0), group, output_buffer.size(1) / group,
-       output_buffer.size(2), output_buffer.size(3)});
-
-  for (int elt = 0; elt < batchSize / im2col_step; elt++) {
-    deformable_im2col(input[elt], offset[elt], nInputPlane, inputHeight,
-                      inputWidth, kH, kW, padH, padW, dH, dW, dilationH,
-                      dilationW, im2col_step, deformable_group, columns);
+  auto columns = at::zeros({in_channels * wt_h * wt_w, im2col_block * out_h * out_w}, input.options());
+  for (int b = 0; b < batch_sz / im2col_block; b++) {
+    deformable_im2col(input[b], offset[b], in_channels, in_h,
+                      in_w, wt_w, wt_h, pad_h, pad_w, stride_h, stride_w, dil_h,
+                      dil_w, im2col_block, deformable_group, columns);
 
     columns = columns.view({group, columns.size(0) / group, columns.size(1)});
-    weight = weight.view({group, weight.size(0) / group, weight.size(1),
-                          weight.size(2), weight.size(3)});
-
-    // std::cout << "columns:\n";
-    // std::cout << columns << "\n\n";
-
     for (int g = 0; g < group; g++) {
-      output_buffer[elt][g] = output_buffer[elt][g]
-                                  .flatten(1)
-                                  .addmm_(weight[g].flatten(1), columns[g])
-                                  .view_as(output_buffer[elt][g]);
+      out_buf[b][g] = out_buf[b][g].flatten(1)
+                                   .addmm_(weight[g].flatten(1), columns[g])
+                                   .view_as(out_buf[b][g]);
     }
   }
 
-  output_buffer = output_buffer.view(
-      {output_buffer.size(0), output_buffer.size(1) * output_buffer.size(2),
-       output_buffer.size(3), output_buffer.size(4)});
+  out_buf = out_buf.view({batch_sz / im2col_block, nOutputPlane, im2col_block, out_h, out_w});
+  out_buf.transpose_(1, 2);
+  out.copy_(out_buf);
+  out = out.view({batch_sz, out_channels, out_h, out_w});
 
-  output_buffer = output_buffer.view({batchSize / im2col_step, nOutputPlane,
-                                      im2col_step, outputHeight, outputWidth});
-  output_buffer.transpose_(1, 2);
-  output.copy_(output_buffer);
-  output = output.view({batchSize, nOutputPlane, outputHeight, outputWidth});
-
-  // std::cout << "output:\n";
-  // std::cout << output << "\n\n";
-
-  input = input.view({batchSize, nInputPlane, inputHeight, inputWidth});
-  offset = offset.view(
-      {batchSize, deformable_group * 2 * kH * kW, outputHeight, outputWidth});
+  input = input.view({batch_sz, in_channels, in_h, in_w});
+  offset = offset.view({batch_sz, deformable_group * 2 * wt_h * wt_w, out_h, out_w});
 
   return 1;
 }
 
 
-
-
-
-
-/*
-
-template <typename T>
-__global__ void DCNForward(
-    const T* input,
-    const T* offset,
-    const T* weight,
-    const int stride,
-    const int padding,
-    const int dilation,
-    const int groups,
-    const int deformable_groups,
-    const int im2col_step,
-    T* output) {
-  output[0] = input[0] * input[0];
+int get_output_dim(int in_dim, int stride, int pad, int dilation) {
+  int kernel_dim = dilation * (weights_dim - 1) + 1;
+  return (in_dim + (2 * pad) - kernel_dim) / stride + 1;
 }
-*/
-//*
+
+
+at::Tensor create_output_tensor(
+    const at::Tensor& input,
+    int n_channels,
+    std::tuple<int> stride,
+    std::tuple<int> pad,
+    std::tuple<int> dilation
+    ) {
+  int batch_sz = input.size(0);
+  int in_h = input.size(2);
+  int in_w = input.size(3);
+
+  int stride_h = stride.first;
+  int stride_w = stride.second;
+
+  int pad_h = pad.first;
+  int pad_w = pad.second;
+
+  int dilation_h = dilation.first;
+  int dilation_w = dilation.second;
+
+  auto out_h = get_output_dim(in_h, stride_h, pad_h, dilation_h);
+  auto out_w = get_output_dim(in_w, stride_w, pad_w, dilation_w);
+
+  return at::zeros({batch_size, n_channels, out_h, out_w}, input.options());
+}
+
 
 at::Tensor DCN_forward_cuda(
     const at::Tensor& input,
     const at::Tensor& offset,
     const at::Tensor& weight,
-    const int stride,
-    const int padding,
-    const int dilation,
+    const std::pair<int>& stride,
+    const std::pair<int>& pad,
+    const std::pair<int>& dilation,
     const int groups,
     const int deformable_groups,
     const int im2col_step) {
@@ -646,52 +633,20 @@ at::Tensor DCN_forward_cuda(
 
   auto batch_size = input.size(0);
   auto n_channels = weight.size(0);
-  auto in_size = input.size(2);
-  auto kernel_size = dilation * (weight.size(2) - 1) + 1;
-  auto out_size = (in_size + (2 * padding) - kernel_size) / stride + 1;
 
-  at::Tensor output = at::zeros({batch_size, n_channels, out_size, out_size}, input.options());
+  auto cur_im2col_step = std::min(batch_size, im2col_step);
+  TORCH_CHECK(batch_size % cur_im2col_step == 0);
 
-  at::Tensor buf0 = at::zeros({1}, input.options());
-  at::Tensor buf1 = at::zeros({1}, input.options());
-
-  int in_size0 = input.size(0);
-  auto cur_im2col_step = std::min(in_size0, im2col_step);
-  TORCH_CHECK(in_size0 % cur_im2col_step == 0);
+  auto output = create_output_tensor(input, n_channels, stride, pad, dilation);
 
   deform_conv_forward_cuda(
-      input, weight, offset, output, buf0, buf1,
-      stride, stride,
-      padding, padding,
-      dilation, dilation,
+      input, weight, offset, output,
+      stride, padding, dilation,
       groups, deformable_groups,
       cur_im2col_step);
 
-  /*
-  AT_DISPATCH_FLOATING_TYPES_AND_HALF(input.type(), "DCN_forward", [&] {
-    DCNForward<scalar_t><<<1, 1, 0, stream>>>(
-        input.contiguous().data_ptr<scalar_t>(),
-        weight.contiguous().data_ptr<scalar_t>(),
-        offset.contiguous().data_ptr<scalar_t>(),
-        buf0.contiguous().data_ptr<scalar_t>(),
-        buf1.contiguous().data_ptr<scalar_t>(),
-        stride,
-        stride,
-        padding,
-        padding,
-        dilation,
-        dilation,
-        groups,
-        deformable_groups,
-        im2col_step,
-        output.data_ptr<scalar_t>());
-  });
-  AT_CUDA_CHECK(cudaGetLastError());
-  */
   return output;
 }
-// */
-
 
 
 template <typename T>

@@ -10,12 +10,12 @@ at::Tensor DCN_forward(
     const Tensor& input,
     const Tensor& offset,
     const Tensor& weights,
-    const int64_t stride,
-    const int64_t padding,
-    const int64_t dilation,
-    const int64_t groups,
-    const int64_t deformable_groups,
-    const int64_t im2col_step    
+    const std::pair<int>& stride,
+    const std::pair<int>& pad,
+    const std::pair<int>& dilation,
+    const int groups,
+    const int deformable_groups,
+    const int im2col_step    
     ) {
   if (input.type().is_cuda()) {
 #ifdef WITH_CUDA
@@ -53,13 +53,13 @@ class DCNFunction : public torch::autograd::Function<DCNFunction> {
       Variable input,
       Variable offset,
       Variable weights,
-      const int64_t stride,
-      const int64_t padding,
-      const int64_t dilation,
-      const int64_t groups,
-      const int64_t deformable_groups,
-      const int64_t im2col_step) {
-    auto output = DCN_forward(input, offset, weights, stride, padding,
+      const std::pair<int>& stride,
+      const std::pair<int>& pad,
+      const std::pair<int>& dilation,
+      const int groups,
+      const int deformable_groups,
+      const int im2col_step) {
+    auto output = DCN_forward(input, offset, weights, stride, pad,
                     dilation, groups, deformable_groups, im2col_step);
     ctx->save_for_backward({input, offset, weights});
     return {output,};
@@ -81,12 +81,12 @@ Tensor dcn(
     const Tensor& input,
     const Tensor& offset,
     const Tensor& weights,
-    const int64_t stride,
-    const int64_t padding,
-    const int64_t dilation,
-    const int64_t groups,
-    const int64_t deformable_groups,
-    const int64_t im2col_step) {
+    const std::pair<int>& stride,
+    const std::pair<int>& pad,
+    const std::pair<int>& dilation,
+    const int groups,
+    const int deformable_groups,
+    const int im2col_step) {
   auto result = DCNFunction::apply(input, offset, weights, stride, padding,
                           dilation, groups, deformable_groups, im2col_step);
   return result[0];
