@@ -60,9 +60,9 @@ class DCNFunction : public torch::autograd::Function<DCNFunction> {
       int64_t deformable_groups,
       int64_t im2col_step) {
     auto output = DCN_forward(input, offset, weights,
-        stride.first, stride.second,
-        pad.first, pad.second,
-        dilation.first, dilation.second,
+        stride_h, stride_w,
+        pad_h, pad_w,
+        dilation_h, dilation_w,
         groups, deformable_groups, im2col_step);
     ctx->save_for_backward({input, offset, weights});
     return {output,};
