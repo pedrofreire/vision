@@ -19,13 +19,13 @@ at::Tensor DCN_forward(
     ) {
   if (input.type().is_cuda()) {
 #ifdef WITH_CUDA
-    return DCN_forward_cuda(input, offset, weights, stride_h, stride_w, padding_h, padding_w,
+    return DCN_forward_cuda(input, offset, weights, stride_h, stride_w, pad_h, pad_w,
                       dilation_h, dilation_w, groups, deformable_groups, im2col_step);
 #else
     AT_ERROR("Not compiled with GPU support");
 #endif
   }
-  return DCN_forward_cpu(input, offset, weights, stride_h, stride_w, padding_h, padding_w,
+  return DCN_forward_cpu(input, offset, weights, stride_h, stride_w, pad_h, pad_w,
                     dilation_h, dilation_w, groups, deformable_groups, im2col_step);
 }
 
@@ -90,7 +90,7 @@ Tensor dcn(
     const int groups,
     const int deformable_groups,
     const int im2col_step) {
-  auto result = DCNFunction::apply(input, offset, weights, stride, padding,
+  auto result = DCNFunction::apply(input, offset, weights, stride, pad,
                           dilation, groups, deformable_groups, im2col_step);
   return result[0];
 }
