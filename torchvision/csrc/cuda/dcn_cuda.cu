@@ -519,7 +519,7 @@ int deform_conv_forward_cuda(
     const std::pair<int, int>& pad,
     const std::pair<int, int>& dilation,
     int group, int deformable_group, int im2col_block) {
-  shape_check(input, offset, NULL, weight, wt_h, wt_w, stride, pad, dilation, group, deformable_group);
+  shape_check(input, offset, NULL, weight, stride, pad, dilation, group, deformable_group);
 
   at::DeviceGuard guard(input.device());
   
@@ -595,9 +595,9 @@ int get_output_dim(int in_dim, int stride, int pad, int dilation) {
 at::Tensor create_output_tensor(
     const at::Tensor& input,
     int n_channels,
-    std::tuple<int> stride,
-    std::tuple<int> pad,
-    std::tuple<int> dilation
+    std::pair<int> stride,
+    std::pair<int> pad,
+    std::pair<int> dilation
     ) {
   int batch_sz = input.size(0);
   int in_h = input.size(2);
