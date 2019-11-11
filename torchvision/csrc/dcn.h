@@ -10,9 +10,9 @@ at::Tensor DCN_forward(
     const Tensor& input,
     const Tensor& offset,
     const Tensor& weights,
-    const std::pair<int>& stride,
-    const std::pair<int>& pad,
-    const std::pair<int>& dilation,
+    const std::pair<int, int>& stride,
+    const std::pair<int, int>& pad,
+    const std::pair<int, int>& dilation,
     const int groups,
     const int deformable_groups,
     const int im2col_step    
