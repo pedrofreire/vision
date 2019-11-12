@@ -26,7 +26,7 @@ inline int GET_BLOCKS(const int N)
 template <typename scalar_t>
 __device__ scalar_t bilinear_interpolate(const scalar_t *in, const int height, const int width, scalar_t h, scalar_t w)
 {
-  if (!(h_im > -1 && w_im > -1 && h_im < height && w_im < width)) {
+  if (h <= -1 || height <= h || w <= -1 || width <= w) {
     return 0;
   }
 
@@ -178,14 +178,14 @@ __global__ void deformable_im2col_gpu_kernel(const int n, const scalar_t* input_
 }
 
 void deformable_im2col(
-    const at::Tensor input, const at::Tensor data_offset, const int n_in_channels,
-    const int height, const int width, const int weight_h, const int weight_w,
-    const int pad_h, const int pad_w, const int stride_h, const int stride_w,
-    const int dil_h, const int dil_w, const int parallel_imgs,
-    const int deformable_group, at::Tensor data_col)
-{
-  // num_axes should be smaller than block size
-  // todo: check parallel_imgs is correctly passed in
+    const at::Tensor input, const at::Tensor data_offset, int n_in_channels,
+    int height, int width,
+    int weight_h, int weight_w,
+    int pad_h, int pad_w,
+    int stride_h, int stride_w,
+    int dil_h, int dil_w,
+    int out_h, int out_w,
+    int parallel_imgs, int deformable_group, at::Tensor data_col) {
   int out_h = (height + 2 * pad_h - (dil_h * (weight_h - 1) + 1)) / stride_h + 1;
   int out_w = (width + 2 * pad_w - (dil_w * (weight_w - 1) + 1)) / stride_w + 1;
   int num_kernels = n_in_channels * out_h * out_w * parallel_imgs;
@@ -555,7 +555,7 @@ int deform_conv_forward_cuda(
   for (int b = 0; b < batch_sz / im2col_block; b++) {
     deformable_im2col(input[b], offset[b], in_channels, in_h,
                       in_w, wt_w, wt_h, pad_h, pad_w, stride_h, stride_w, dil_h,
-                      dil_w, im2col_block, deformable_group, columns);
+                      dil_w, out_h, out_w, im2col_block, deformable_group, columns);
 
     columns = columns.view({group, columns.size(0) / group, columns.size(1)});
     for (int g = 0; g < group; g++) {
