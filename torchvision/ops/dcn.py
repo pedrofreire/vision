@@ -34,13 +34,17 @@ def dcn(input, offset, weight):
     deformable_groups = 1
     im2col_step = 1
 
+    stride = _pair(stride)
+    pad = _pair(pad)
+    dilation = _pair(dilation)
+
     output = torch.ops.torchvision.dcn(
                 input,
                 offset,
                 weight,
-                _pair(stride),
-                _pair(padding),
-                _pair(dilation),
+                *stride,
+                *pad,
+                *dilation,
                 groups,
                 deformable_groups,
                 im2col_step)

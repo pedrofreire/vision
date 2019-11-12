@@ -556,8 +556,8 @@ int deform_conv_forward_cuda(
   offset = offset.view({batch_sz / im2col_block, im2col_block, deformable_group * 2 * wt_h * wt_w, out_h, out_w});
   at::Tensor out_buf = at::zeros({batch_sz / im2col_block, out_channels, im2col_block * out_h, out_w}, out.options());
 
+  // Break convolution channels into groups
   out_buf = out_buf.view({out_buf.size(0), group, out_buf.size(1) / group, out_buf.size(2), out_buf.size(3)}); 
-
   weight = weight.view({group, weight.size(0) / group, weight.size(1), weight.size(2), weight.size(3)});
 
   auto columns = at::zeros({in_channels * wt_h * wt_w, im2col_block * out_h * out_w}, input.options());
