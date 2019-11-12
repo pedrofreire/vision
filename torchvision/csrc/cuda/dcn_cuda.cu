@@ -586,7 +586,7 @@ int deform_conv_forward_cuda(
 }
 
 
-int get_output_dim(int in_dim, int stride, int pad, int dilation) {
+int get_output_dim(int in_dim, int weights_dim, int stride, int pad, int dilation) {
   int kernel_dim = dilation * (weights_dim - 1) + 1;
   return (in_dim + (2 * pad) - kernel_dim) / stride + 1;
 }
@@ -594,6 +594,7 @@ int get_output_dim(int in_dim, int stride, int pad, int dilation) {
 
 at::Tensor create_output_tensor(
     const at::Tensor& input,
+    const at::Tensor& weight,
     int n_channels,
     std::pair<int, int> stride,
     std::pair<int, int> pad,
@@ -602,6 +603,9 @@ at::Tensor create_output_tensor(
   int batch_sz = input.size(0);
   int in_h = input.size(2);
   int in_w = input.size(3);
+
+  int weight_h = weight.size(2);
+  int weight_w = weight.size(3);
 
   int stride_h = stride.first;
   int stride_w = stride.second;
@@ -612,8 +616,8 @@ at::Tensor create_output_tensor(
   int dilation_h = dilation.first;
   int dilation_w = dilation.second;
 
-  auto out_h = get_output_dim(in_h, stride_h, pad_h, dilation_h);
-  auto out_w = get_output_dim(in_w, stride_w, pad_w, dilation_w);
+  auto out_h = get_output_dim(in_h, weight_h, stride_h, pad_h, dilation_h);
+  auto out_w = get_output_dim(in_w, weight_w, stride_w, pad_w, dilation_w);
 
   return at::zeros({batch_sz, n_channels, out_h, out_w}, input.options());
 }
