@@ -1241,7 +1241,7 @@ class DCNTester(unittest.TestCase):
         dil_h, dil_w = _pair(dilation)
         weights_h, weights_w = weights.shape[-2:]
 
-        batch_sz, n_in_channels, in_h, in_w = x.shape
+        n_batches, n_in_channels, in_h, in_w = x.shape
         n_out_channels = weights.shape[0]
 
         kernel_h = (weights_h - 1) * dil_h + 1
@@ -1255,7 +1255,7 @@ class DCNTester(unittest.TestCase):
         n_weight_grps = n_in_channels / weights.shape[1]
         c_per_weight_grp = weights.shape[1]
 
-        out = torch.zeros(batch_sz, n_out_channels, out_h, out_w)
+        out = torch.zeros(n_batches, n_out_channels, out_h, out_w)
         for b in range(n_batches):
             for c_out in range(n_out_channels):
                 for i in range(out_h):
