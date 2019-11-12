@@ -142,8 +142,8 @@ __global__ void deformable_im2col_gpu_kernel(const int n, const scalar_t* input_
 {
   CUDA_KERNEL_LOOP(index, n)
   {
-    const int out_y = index % out_w;
-    const int out_x = (index / out_w) % out_h;
+    const int out_x = index % out_w;
+    const int out_y = (index / out_w) % out_h;
     const int out_b = (index / (out_w * out_h)) % batch_sz;
     const int in_c = index / (out_w * out_h * batch_sz);
     const int out_c = in_c * weight_h * weight_w;
@@ -166,8 +166,8 @@ __global__ void deformable_im2col_gpu_kernel(const int n, const scalar_t* input_
         const int offset_idx = 2 * (i * weight_w + j);
         const scalar_t offset_h = offset_ptr[offset_idx * (out_h * out_w) + out_y * out_w + out_x];
         const scalar_t offset_w = offset_ptr[(offset_idx + 1) * (out_h * out_w) + out_y * out_w + out_x];
-        const scalar_t y = (out_x * stride_h - pad_h) + i * dil_h + offset_h;
-        const scalar_t x = (out_y * stride_w - pad_w) + j * dil_w + offset_w;
+        const scalar_t y = (out_y * stride_h - pad_h) + i * dil_h + offset_h;
+        const scalar_t x = (out_x * stride_w - pad_w) + j * dil_w + offset_w;
         *columns_ptr = bilinear_interpolate(input_ptr, height, width, y, x);
         columns_ptr += batch_sz * out_h * out_w;
       }
