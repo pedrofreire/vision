@@ -1300,7 +1300,7 @@ class DCNTester(unittest.TestCase):
         n_offset_grps = 2
         x = 10 * torch.rand(1, 2, 5, 5, device=torch.device('cuda'), dtype=torch.float64)
         offset = torch.randn(1, n_offset_grps * 8, 4, 4, device=torch.device('cuda'), dtype=torch.float64)
-        weight = torch.randn(2, 2, 2, 2, device=torch.device('cuda'), dtype=torch.float64)
+        weight = torch.randn(2, 1, 2, 2, device=torch.device('cuda'), dtype=torch.float64)
 
         res = ops.dcn(x, offset, weight)
         expected = self.expected_fn(x, offset, weight).to(device=torch.device('cuda'), dtype=torch.float64)
