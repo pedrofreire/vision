@@ -132,60 +132,63 @@ __device__ scalar_t get_coordinate_weight(scalar_t argmax_h, scalar_t argmax_w,
 }
 
 template <typename scalar_t>
-__global__ void deformable_im2col_gpu_weight(const int n, const scalar_t *input, const scalar_t *offset,
+__global__ void deformable_im2col_gpu_kernel(const int n, const scalar_t* input_ptr, const scalar_t* offset_ptr,
                                              const int height, const int width, const int weight_h, const int weight_w,
                                              const int pad_h, const int pad_w, const int stride_h, const int stride_w,
-                                             const int dilation_h, const int dilation_w, const int channel_per_deformable_group,
+                                             const int dil_h, const int dil_w,
                                              const int batch_sz, const int n_in_channels, const int deformable_group,
                                              const int out_h, const int out_w,
-                                             scalar_t *columns)
+                                             scalar_t* columns_ptr)
 {
   CUDA_KERNEL_LOOP(index, n)
   {
     // index index of output matrix
-    const int w_col = index % out_w;
-    const int h_col = (index / out_w) % out_h;
-    const int batch = (index / (out_w * out_h)) % batch_size;
-    const int c_im = index / (out_w * out_h * batch_size);
-    const int c_col = c_im * weight_h * weight_w;
+    const int out_y = index % out_w;
+    const int out_x = (index / out_w) % out_h;
+    const int out_b = (index / (out_w * out_h)) % batch_sz;
+    const int in_c = index / (out_w * out_h * batch_sz);
+    const int out_c = in_c * weight_h * weight_w;
 
     // compute deformable group index
-    const int grp_idx = c_im / channel_per_deformable_group;
+    int channel_per_deformable_group = n_in_channels / deformable_group;
+    const int grp_idx = in_c / channel_per_deformable_group;
 
-    const int h_in = h_col * stride_h - pad_h;
-    const int w_in = w_col * stride_w - pad_w;
+    columns_ptr += (out_c * (batch_sz * out_h * out_w)
+                  + out_b * (out_h * out_w)
+                  + out_y * out_w
+                  + out_x);
 
-    scalar_t *data_col_ptr = data_col + ((c_col * batch_size + batch) * out_h + h_col) * out_w + w_col;
-    const scalar_t *input_ptr = input + (batch * n_in_channels + c_im) * height * width;
-    const scalar_t *offset_ptr = offset + (batch * deformable_group + grp_idx) * 2 * weight_h * weight_w * out_h * out_w;
+    input_ptr += (out_b * (n_in_channels * height * width)
+                 + in_c * (height * width));
+
+    offset_ptr += (out_b * deformable_group + grp_idx) * 2 * weight_h * weight_w * out_h * out_w;
 
     for (int i = 0; i < weight_h; ++i) {
       for (int j = 0; j < weight_w; ++j) {
         const int offset_idx = 2 * (i * weight_w + j);
-        const scalar_t offset_h = offset_ptr[offset_idx * (out_h * out_w) + h_col * out_w + w_col];
-        const scalar_t offset_w = offset_ptr[(offset_idx + 1) * (out_h * out_w) + h_col * out_w + w_col];
-        const scalar_t y = h_in + i * dilation_h + offset_h;
-        const scalar_t x = w_in + j * dilation_w + offset_w;
-        *columns = bilinear_interpolate(input_ptr, height, width, y, x);
-        columns += batch_size * out_h * out_w;
+        const scalar_t offset_h = offset_ptr[offset_idx * (out_h * out_w) + out_x * out_w + out_y];
+        const scalar_t offset_w = offset_ptr[(offset_idx + 1) * (out_h * out_w) + out_x * out_w + out_y];
+        const scalar_t y = (out_x * stride_h - pad_h) + i * dil_h + offset_h;
+        const scalar_t x = (out_y * stride_w - pad_w) + j * dil_w + offset_w;
+        *columns_ptr = bilinear_interpolate(input_ptr, height, width, y, x);
+        columns_ptr += batch_sz * out_h * out_w;
       }
     }
   }
 }
 
 void deformable_im2col(
-    const at::Tensor input, const at::Tensor data_offset, const int channels,
-    const int height, const int width, const int ksize_h, const int ksize_w,
+    const at::Tensor input, const at::Tensor data_offset, const int n_in_channels,
+    const int height, const int width, const int weight_h, const int weight_w,
     const int pad_h, const int pad_w, const int stride_h, const int stride_w,
-    const int dilation_h, const int dilation_w, const int parallel_imgs,
+    const int dil_h, const int dil_w, const int parallel_imgs,
     const int deformable_group, at::Tensor data_col)
 {
   // num_axes should be smaller than block size
   // todo: check parallel_imgs is correctly passed in
-  int out_h = (height + 2 * pad_h - (dilation_h * (ksize_h - 1) + 1)) / stride_h + 1;
-  int out_w = (width + 2 * pad_w - (dilation_w * (ksize_w - 1) + 1)) / stride_w + 1;
-  int num_kernels = channels * height_col * width_col * parallel_imgs;
-  int channel_per_deformable_group = channels / deformable_group;
+  int out_h = (height + 2 * pad_h - (dil_h * (weight_h - 1) + 1)) / stride_h + 1;
+  int out_w = (width + 2 * pad_w - (dil_w * (weight_w - 1) + 1)) / stride_w + 1;
+  int num_kernels = n_in_channels * out_h * out_w * parallel_imgs;
 
   AT_DISPATCH_FLOATING_TYPES_AND_HALF(
       input.scalar_type(), "deformable_im2col_gpu", ([&] {
@@ -193,8 +196,8 @@ void deformable_im2col(
             num_kernels,
             input.data_ptr<scalar_t>(),
             data_offset.data_ptr<scalar_t>(),
-            height, width, ksize_h, ksize_w, pad_h, pad_w, stride_h, stride_w, dilation_h, dilation_w,
-            channel_per_deformable_group, parallel_imgs, channels, deformable_group,
+            height, width, weight_h, weight_w, pad_h, pad_w, stride_h, stride_w, dil_h, dil_w,
+            parallel_imgs, n_in_channels, deformable_group,
             out_h, out_w,
             data_col.data_ptr<scalar_t>());
       }));
