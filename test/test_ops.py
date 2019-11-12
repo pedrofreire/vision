@@ -1249,8 +1249,8 @@ class DCNTester(unittest.TestCase):
         out_h = ((in_h + 2*pad_h) - kernel_h) // stride_h + 1
         out_w = ((in_w + 2*pad_w) - kernel_w) // stride_w + 1
 
-        n_offset_grps = offsets.shape[1] // (2 * out_h * out_w)
-        c_per_offset_grp = n_in_channels // n_offset_groups
+        n_offset_grps = offsets.shape[1] // (2 * weights_h * weights_w)
+        c_per_offset_grp = n_in_channels // n_offset_grps
 
         n_weight_grps = n_in_channels / weights.shape[1]
         c_per_weight_grp = weights.shape[1]
@@ -1298,7 +1298,7 @@ class DCNTester(unittest.TestCase):
     def test_forward_cuda(self):
         n_weight_grps = 2
         n_offset_grps = 2
-        x = 10 * torch.rand(2, 2, 5, 5, device=torch.device('cuda'), dtype=torch.float64)
+        x = 10 * torch.rand(1, 2, 5, 5, device=torch.device('cuda'), dtype=torch.float64)
         offset = torch.randn(1, n_offset_grps * 8, 4, 4, device=torch.device('cuda'), dtype=torch.float64)
         weight = torch.randn(2, 2, 2, 2, device=torch.device('cuda'), dtype=torch.float64)
 

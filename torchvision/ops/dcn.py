@@ -41,10 +41,8 @@ def dcn(input, offset, weight,
 
     kernel_h = (weights_h - 1) * dil_h + 1
     kernel_w = (weights_w - 1) * dil_w + 1
-    out_h = ((in_h + 2*pad_h) - kernel_h) // stride_h + 1
-    out_w = ((in_w + 2*pad_w) - kernel_w) // stride_w + 1
 
-    n_offset_grps = offset.shape[1] // (2 * out_h * out_w)
+    n_offset_grps = offset.shape[1] // (2 * weights_h * weights_w)
     n_in_channels = input.shape[0]
     n_weight_grps = n_in_channels // weight.shape[1]
 
