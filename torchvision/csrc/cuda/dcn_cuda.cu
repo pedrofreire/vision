@@ -457,10 +457,6 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
   long outputWidth =
       (inputWidth + 2 * padW - (dilationW * (kW - 1) + 1)) / dW + 1;
 
-  std::cout << "\n";
-  std::cout << group << "\n";
-  std::cout << weight.size(1) << "\n";
-  std::cout << deformable_group << "\n";
   AT_CHECK(nInputPlane % deformable_group == 0,
            "input channels must divide deformable group size");
 

@@ -37,13 +37,12 @@ def dcn(input, offset, weight,
     pad_h, pad_w = pad
     dil_h, dil_w = dilation
     weights_h, weights_w = weight.shape[-2:]
-    in_h, in_w = input.shape[-2:]
+    _, n_in_channels, in_h, in_w = input.shape[-2:]
 
     kernel_h = (weights_h - 1) * dil_h + 1
     kernel_w = (weights_w - 1) * dil_w + 1
 
     n_offset_grps = offset.shape[1] // (2 * weights_h * weights_w)
-    n_in_channels = input.shape[0]
     n_weight_grps = n_in_channels // weight.shape[1]
 
     output = torch.ops.torchvision.dcn(
