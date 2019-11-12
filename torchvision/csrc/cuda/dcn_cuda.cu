@@ -627,12 +627,12 @@ at::Tensor DCN_forward_cuda(
     const at::Tensor& input,
     const at::Tensor& offset,
     const at::Tensor& weight,
-    const std::pair<int, int>& stride,
-    const std::pair<int, int>& pad,
-    const std::pair<int, int>& dilation,
-    const int groups,
-    const int deformable_groups,
-    const int im2col_step) {
+    std::pair<int, int> stride,
+    std::pair<int, int> pad,
+    std::pair<int, int> dilation,
+    int groups,
+    int deformable_groups,
+    int im2col_step) {
   AT_ASSERTM(input.device().is_cuda(), "input must be a CUDA tensor");
 
   int batch_size = input.size(0);
