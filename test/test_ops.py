@@ -1236,7 +1236,7 @@ class NMSTester(unittest.TestCase):
 
 class DCNTester(unittest.TestCase):
     def expected_fn(self, x, offsets, weights, stride=1, padding=0, dilation=1,
-                    groups=1, deformable_groups=1):
+                    n_weight_groups=1, n_offset_groups=1):
         stride_h, stride_w = _pair(stride)
         pad_h, pad_w = _pair(padding)
         dil_h, dil_w = _pair(dilation)
@@ -1250,14 +1250,19 @@ class DCNTester(unittest.TestCase):
         out_h = ((in_h + 2*pad_h) - (weights_h - 1) - 1) // stride_h + 1
         out_w = ((in_w + 2*pad_w) - (weights_w - 1) - 1) // stride_w + 1
 
+        c_per_offset_grp = n_channels_in // n_offset_groups
+        c_per_weight_grp = n_channels_in // n_weight_groups
+
         out = torch.zeros(batch_sz, n_channels_out, out_h, out_w)
         for i in range(out_h):
             for j in range(out_w):
+                weight_grp = (i * out_w + j) // c_per_weight_grp
+                offset_grp = (i * out_w + j) // c_per_offset_grp
                 for di in range(weights_h):
                     for dj in range(weights_w):
                         offset_idx = 2 * (weights_h*di + dj)
-                        pi = i + di + offsets[0, offset_idx, i, j]
-                        pj = j + dj + offsets[0, offset_idx + 1, i, j]
+                        pi = stride_h * i - pad_h + dil_h * di + offsets[0, offset_idx, i, j]
+                        pj = stride_w * j - pad_w + dil_w * dj + offsets[0, offset_idx + 1, i, j]
                         val = bilinear_interpolate_2(x[0, 0, :, :], pi, pj)
                         out[0, 0, i, j] += weights[0, 0, di, dj] * val
         return out

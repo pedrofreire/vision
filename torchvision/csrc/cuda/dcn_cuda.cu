@@ -505,8 +505,8 @@ int deform_conv_forward_cuda(
     std::pair<int, int> stride,
     std::pair<int, int> pad,
     std::pair<int, int> dilation,
-    int group, int deformable_group, int im2col_block) {
-  shape_check(input, offset, NULL, weight, stride, pad, dilation, group, deformable_group);
+    int group, int n_offset_groups, int im2col_block) {
+  shape_check(input, offset, NULL, weight, stride, pad, dilation, group, n_offset_groups);
 
   at::DeviceGuard guard(input.device());
   
@@ -540,7 +540,7 @@ int deform_conv_forward_cuda(
   // Break batch size into blocks
   out = out.view({batch_sz / im2col_block, im2col_block, out_channels, out_h, out_w});
   input = input.view({batch_sz / im2col_block, im2col_block, in_channels, in_h, in_w});
-  offset = offset.view({batch_sz / im2col_block, im2col_block, deformable_group * 2 * wt_h * wt_w, out_h, out_w});
+  offset = offset.view({batch_sz / im2col_block, im2col_block, n_offset_groups * 2 * wt_h * wt_w, out_h, out_w});
   at::Tensor out_buf = at::zeros({batch_sz / im2col_block, out_channels, im2col_block * out_h, out_w}, out.options());
 
   // Break convolution channels into groups
@@ -551,7 +551,7 @@ int deform_conv_forward_cuda(
   for (int b = 0; b < batch_sz / im2col_block; b++) {
     deformable_im2col(input[b], offset[b], in_channels, in_h,
                       in_w, wt_w, wt_h, pad_h, pad_w, stride_h, stride_w, dil_h,
-                      dil_w, out_h, out_w, im2col_block, deformable_group, columns);
+                      dil_w, out_h, out_w, im2col_block, n_offset_groups, columns);
 
     columns = columns.view({group, columns.size(0) / group, columns.size(1)});
     for (int g = 0; g < group; g++) {
@@ -567,7 +567,7 @@ int deform_conv_forward_cuda(
   out = out.view({batch_sz, out_channels, out_h, out_w});
 
   input = input.view({batch_sz, in_channels, in_h, in_w});
-  offset = offset.view({batch_sz, deformable_group * 2 * wt_h * wt_w, out_h, out_w});
+  offset = offset.view({batch_sz, n_offset_groups * 2 * wt_h * wt_w, out_h, out_w});
 
   return 1;
 }
