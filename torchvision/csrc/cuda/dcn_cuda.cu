@@ -641,7 +641,7 @@ at::Tensor DCN_forward_cuda(
   int cur_im2col_step = std::min(batch_size, im2col_step);
   TORCH_CHECK(batch_size % cur_im2col_step == 0);
 
-  auto output = create_output_tensor(input, n_channels, stride, pad, dilation);
+  auto output = create_output_tensor(input, weight, n_channels, stride, pad, dilation);
 
   deform_conv_forward_cuda(
       input, weight, offset, output,
