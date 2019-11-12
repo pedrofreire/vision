@@ -186,8 +186,6 @@ void deformable_im2col(
     int dil_h, int dil_w,
     int out_h, int out_w,
     int parallel_imgs, int deformable_group, at::Tensor data_col) {
-  int out_h = (height + 2 * pad_h - (dil_h * (weight_h - 1) + 1)) / stride_h + 1;
-  int out_w = (width + 2 * pad_w - (dil_w * (weight_w - 1) + 1)) / stride_w + 1;
   int num_kernels = n_in_channels * out_h * out_w * parallel_imgs;
 
   AT_DISPATCH_FLOATING_TYPES_AND_HALF(
