@@ -37,7 +37,7 @@ def dcn(input, offset, weight,
     pad_h, pad_w = pad
     dil_h, dil_w = dilation
     weights_h, weights_w = weight.shape[-2:]
-    in_h, in_w = x.shape[-2:]
+    in_h, in_w = input.shape[-2:]
 
     kernel_h = (weights_h - 1) * dil_h + 1
     kernel_w = (weights_w - 1) * dil_w + 1
