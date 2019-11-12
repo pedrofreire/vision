@@ -14,12 +14,10 @@ at::Tensor DCN_forward_cpu(
     const at::Tensor& input,
     const at::Tensor& offset,
     const at::Tensor& weights,
-    const int stride,
-    const int padding,
-    const int dilation,
-    const int groups,
-    const int deformable_groups,
-    const int im2col_step) {
+    std::pair<int, int> stride,
+    std::pair<int, int> pad,
+    std::pair<int, int> dilation,
+    int group, int deformable_group, int im2col_block) {
   AT_ASSERTM(input.device().is_cpu(), "input must be a CPU tensor");
 
   at::Tensor output = at::zeros({1}, input.options());
