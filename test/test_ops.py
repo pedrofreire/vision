@@ -1235,9 +1235,9 @@ class NMSTester(unittest.TestCase):
 
 
 class DCNTester(unittest.TestCase):
-    def expected_fn(self, x, offsets, weights, stride=1, padding=0, dilation=1):
+    def expected_fn(self, x, offsets, weights, stride=1, pad=0, dilation=1):
         stride_h, stride_w = _pair(stride)
-        pad_h, pad_w = _pair(padding)
+        pad_h, pad_w = _pair(pad)
         dil_h, dil_w = _pair(dilation)
         weights_h, weights_w = weights.shape[-2:]
 

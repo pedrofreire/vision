@@ -34,7 +34,7 @@ def dcn(input, offset, weight,
     dilation = _pair(dilation)
 
     stride_h, stride_w = stride
-    pad_h, pad_w = padding
+    pad_h, pad_w = pad
     dil_h, dil_w = dilation
     weights_h, weights_w = weight.shape[-2:]
 
