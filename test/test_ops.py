@@ -1252,7 +1252,7 @@ class DCNTester(unittest.TestCase):
         n_offset_grps = offsets.shape[1] // (2 * weights_h * weights_w)
         c_per_offset_grp = n_in_channels // n_offset_grps
 
-        n_weight_grps = n_in_channels / weights.shape[1]
+        n_weight_grps = n_in_channels // weights.shape[1]
         c_per_weight_grp = weights.shape[1]
 
         out = torch.zeros(n_batches, n_out_channels, out_h, out_w)
