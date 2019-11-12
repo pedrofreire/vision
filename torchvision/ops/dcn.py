@@ -6,7 +6,9 @@ from torch.jit.annotations import List
 
 
 
-def dcn(input, offset, weight):
+def dcn(input, offset, weight,
+        stride=1, pad=0, dilation=1,
+        im2col_step=1):
     # type: (Tensor) -> Tensor
     """
     Performs Deformable Convolution described in Deformable Convolution Networks
@@ -27,16 +29,23 @@ def dcn(input, offset, weight):
         output (Tensor[K, C, output_size[0], output_size[1]])
     """
 
-    stride = 1
-    pad = 0
-    dilation = 1
-    groups = 1
-    deformable_groups = 1
-    im2col_step = 1
-
     stride = _pair(stride)
     pad = _pair(pad)
     dilation = _pair(dilation)
+
+    stride_h, stride_w = stride
+    pad_h, pad_w = padding
+    dil_h, dil_w = dilation
+    weights_h, weights_w = weight.shape[-2:]
+
+    kernel_h = (weights_h - 1) * dil_h + 1
+    kernel_w = (weights_w - 1) * dil_w + 1
+    out_h = ((in_h + 2*pad_h) - kernel_h) // stride_h + 1
+    out_w = ((in_w + 2*pad_w) - kernel_w) // stride_w + 1
+
+    n_offset_grps = offset.shape[1] // (2 * out_h * out_w)
+    n_in_channels = input.shape[0]
+    n_weight_grps = n_in_channels // weight.shape[1]
 
     output = torch.ops.torchvision.dcn(
                 input,
@@ -45,8 +54,8 @@ def dcn(input, offset, weight):
                 *stride,
                 *pad,
                 *dilation,
-                groups,
-                deformable_groups,
+                n_weight_grps,
+                n_offset_grps,
                 im2col_step)
     return output
 
