@@ -24,9 +24,11 @@ inline int GET_BLOCKS(const int N)
 }
 
 template <typename scalar_t>
-__device__ scalar_t deformable_im2col_bilinear(const scalar_t *bottom_data, const int data_width,
-                                               const int height, const int width, scalar_t h, scalar_t w)
+__device__ scalar_t bilinear_interpolate(const scalar_t *in, const int height, const int width, scalar_t h, scalar_t w)
 {
+  if (!(h_im > -1 && w_im > -1 && h_im < height && w_im < width)) {
+    return 0;
+  }
 
   int h_low = floor(h);
   int w_low = floor(w);
@@ -39,16 +41,16 @@ __device__ scalar_t deformable_im2col_bilinear(const scalar_t *bottom_data, cons
 
   scalar_t v1 = 0;
   if (h_low >= 0 && w_low >= 0)
-    v1 = bottom_data[h_low * data_width + w_low];
+    v1 = in[h_low * width + w_low];
   scalar_t v2 = 0;
   if (h_low >= 0 && w_high <= width - 1)
-    v2 = bottom_data[h_low * data_width + w_high];
+    v2 = in[h_low * width + w_high];
   scalar_t v3 = 0;
   if (h_high <= height - 1 && w_low >= 0)
-    v3 = bottom_data[h_high * data_width + w_low];
+    v3 = in[h_high * width + w_low];
   scalar_t v4 = 0;
   if (h_high <= height - 1 && w_high <= width - 1)
-    v4 = bottom_data[h_high * data_width + w_high];
+    v4 = in[h_high * width + w_high];
 
   scalar_t w1 = hh * hw, w2 = hh * lw, w3 = lh * hw, w4 = lh * lw;
 
@@ -130,55 +132,42 @@ __device__ scalar_t get_coordinate_weight(scalar_t argmax_h, scalar_t argmax_w,
 }
 
 template <typename scalar_t>
-__global__ void deformable_im2col_gpu_kernel(const int n, const scalar_t *data_im, const scalar_t *data_offset,
-                                             const int height, const int width, const int kernel_h, const int kernel_w,
+__global__ void deformable_im2col_gpu_weight(const int n, const scalar_t *input, const scalar_t *offset,
+                                             const int height, const int width, const int weight_h, const int weight_w,
                                              const int pad_h, const int pad_w, const int stride_h, const int stride_w,
                                              const int dilation_h, const int dilation_w, const int channel_per_deformable_group,
-                                             const int batch_size, const int num_channels, const int deformable_group,
-                                             const int height_col, const int width_col,
-                                             scalar_t *data_col)
+                                             const int batch_sz, const int n_in_channels, const int deformable_group,
+                                             const int out_h, const int out_w,
+                                             scalar_t *columns)
 {
   CUDA_KERNEL_LOOP(index, n)
   {
     // index index of output matrix
-    const int w_col = index % width_col;
-    const int h_col = (index / width_col) % height_col;
-    const int b_col = (index / width_col / height_col) % batch_size;
-    const int c_im = (index / width_col / height_col) / batch_size;
-    const int c_col = c_im * kernel_h * kernel_w;
+    const int w_col = index % out_w;
+    const int h_col = (index / out_w) % out_h;
+    const int batch = (index / (out_w * out_h)) % batch_size;
+    const int c_im = index / (out_w * out_h * batch_size);
+    const int c_col = c_im * weight_h * weight_w;
 
     // compute deformable group index
-    const int deformable_group_index = c_im / channel_per_deformable_group;
+    const int grp_idx = c_im / channel_per_deformable_group;
 
     const int h_in = h_col * stride_h - pad_h;
     const int w_in = w_col * stride_w - pad_w;
-    scalar_t *data_col_ptr = data_col + ((c_col * batch_size + b_col) * height_col + h_col) * width_col + w_col;
-    //const scalar_t* data_im_ptr = data_im + ((b_col * num_channels + c_im) * height + h_in) * width + w_in;
-    const scalar_t *data_im_ptr = data_im + (b_col * num_channels + c_im) * height * width;
-    const scalar_t *data_offset_ptr = data_offset + (b_col * deformable_group + deformable_group_index) * 2 * kernel_h * kernel_w * height_col * width_col;
 
-    for (int i = 0; i < kernel_h; ++i)
-    {
-      for (int j = 0; j < kernel_w; ++j)
-      {
-        const int data_offset_h_ptr = ((2 * (i * kernel_w + j)) * height_col + h_col) * width_col + w_col;
-        const int data_offset_w_ptr = ((2 * (i * kernel_w + j) + 1) * height_col + h_col) * width_col + w_col;
-        const scalar_t offset_h = data_offset_ptr[data_offset_h_ptr];
-        const scalar_t offset_w = data_offset_ptr[data_offset_w_ptr];
-        scalar_t val = static_cast<scalar_t>(0);
-        const scalar_t h_im = h_in + i * dilation_h + offset_h;
-        const scalar_t w_im = w_in + j * dilation_w + offset_w;
-        if (h_im > -1 && w_im > -1 && h_im < height && w_im < width)
-        {
-          //const scalar_t map_h = i * dilation_h + offset_h;
-          //const scalar_t map_w = j * dilation_w + offset_w;
-          //const int cur_height = height - h_in;
-          //const int cur_width = width - w_in;
-          //val = deformable_im2col_bilinear(data_im_ptr, width, cur_height, cur_width, map_h, map_w);
-          val = deformable_im2col_bilinear(data_im_ptr, width, height, width, h_im, w_im);
-        }
-        *data_col_ptr = val;
-        data_col_ptr += batch_size * height_col * width_col;
+    scalar_t *data_col_ptr = data_col + ((c_col * batch_size + batch) * out_h + h_col) * out_w + w_col;
+    const scalar_t *input_ptr = input + (batch * n_in_channels + c_im) * height * width;
+    const scalar_t *offset_ptr = offset + (batch * deformable_group + grp_idx) * 2 * weight_h * weight_w * out_h * out_w;
+
+    for (int i = 0; i < weight_h; ++i) {
+      for (int j = 0; j < weight_w; ++j) {
+        const int offset_idx = 2 * (i * weight_w + j);
+        const scalar_t offset_h = offset_ptr[offset_idx * (out_h * out_w) + h_col * out_w + w_col];
+        const scalar_t offset_w = offset_ptr[(offset_idx + 1) * (out_h * out_w) + h_col * out_w + w_col];
+        const scalar_t y = h_in + i * dilation_h + offset_h;
+        const scalar_t x = w_in + j * dilation_w + offset_w;
+        *columns = bilinear_interpolate(input_ptr, height, width, y, x);
+        columns += batch_size * out_h * out_w;
       }
     }
   }
@@ -193,8 +182,8 @@ void deformable_im2col(
 {
   // num_axes should be smaller than block size
   // todo: check parallel_imgs is correctly passed in
-  int height_col = (height + 2 * pad_h - (dilation_h * (ksize_h - 1) + 1)) / stride_h + 1;
-  int width_col = (width + 2 * pad_w - (dilation_w * (ksize_w - 1) + 1)) / stride_w + 1;
+  int out_h = (height + 2 * pad_h - (dilation_h * (ksize_h - 1) + 1)) / stride_h + 1;
+  int out_w = (width + 2 * pad_w - (dilation_w * (ksize_w - 1) + 1)) / stride_w + 1;
   int num_kernels = channels * height_col * width_col * parallel_imgs;
   int channel_per_deformable_group = channels / deformable_group;
 
@@ -206,7 +195,7 @@ void deformable_im2col(
             data_offset.data_ptr<scalar_t>(),
             height, width, ksize_h, ksize_w, pad_h, pad_w, stride_h, stride_w, dilation_h, dilation_w,
             channel_per_deformable_group, parallel_imgs, channels, deformable_group,
-            height_col, width_col,
+            out_h, out_w,
             data_col.data_ptr<scalar_t>());
       }));
 
