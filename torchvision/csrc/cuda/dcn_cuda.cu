@@ -457,6 +457,10 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
   long outputWidth =
       (inputWidth + 2 * padW - (dilationW * (kW - 1) + 1)) / dW + 1;
 
+  std::cout << "\n";
+  std::cout << group << "\n";
+  std::cout << weight.size(1) << "\n";
+  std::cout << deformable_group << "\n";
   AT_CHECK(nInputPlane % deformable_group == 0,
            "input channels must divide deformable group size");
 
@@ -582,7 +586,7 @@ int get_output_dim(int in_dim, int weights_dim, int stride, int pad, int dilatio
 at::Tensor create_output_tensor(
     const at::Tensor& input,
     const at::Tensor& weight,
-    int n_channels,
+    int out_channels,
     std::pair<int, int> stride,
     std::pair<int, int> pad,
     std::pair<int, int> dilation
@@ -606,7 +610,7 @@ at::Tensor create_output_tensor(
   auto out_h = get_output_dim(in_h, weight_h, stride_h, pad_h, dilation_h);
   auto out_w = get_output_dim(in_w, weight_w, stride_w, pad_w, dilation_w);
 
-  return at::zeros({batch_sz, n_channels, out_h, out_w}, input.options());
+  return at::zeros({batch_sz, out_channels, out_h, out_w}, input.options());
 }
 
 
@@ -623,12 +627,12 @@ at::Tensor DCN_forward_cuda(
   AT_ASSERTM(input.device().is_cuda(), "input must be a CUDA tensor");
 
   int batch_size = input.size(0);
-  int n_channels = weight.size(0);
+  int out_channels = weight.size(0);
 
   int cur_im2col_step = std::min(batch_size, im2col_step);
   TORCH_CHECK(batch_size % cur_im2col_step == 0);
 
-  auto output = create_output_tensor(input, weight, n_channels, stride, pad, dilation);
+  auto output = create_output_tensor(input, weight, out_channels, stride, pad, dilation);
 
   deform_conv_forward_cuda(
       input, weight, offset, output,
