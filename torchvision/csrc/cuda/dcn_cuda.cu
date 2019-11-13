@@ -510,7 +510,7 @@ at::Tensor DCN_forward_cuda(
 
   AT_ASSERTM(input.device().is_cuda(), "input must be a CUDA tensor");
   int batch_size = input.size(0);
-  int im2col_block = std::min(batch_size, im2col_block);
+  im2col_block = std::min(batch_size, im2col_block);
   TORCH_CHECK(batch_size % im2col_block == 0);
   shape_check(input, offset, NULL, weight, stride, pad, dilation, n_weight_grps, n_offset_grps);
 
@@ -580,7 +580,7 @@ at::Tensor DCN_forward_cuda(
   input = input.view({n_batches, in_channels, in_h, in_w});
   offset = offset.view({n_batches, 2 * n_offset_grps * weight_h * weight_w, out_h, out_w});
 
-  return 1;
+  return out;
 }
 
 
