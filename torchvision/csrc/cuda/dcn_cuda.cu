@@ -178,7 +178,7 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
            "offset output dims: (", offset.size(2), ", ", offset.size(3),
            ") - output dims: (", out_h, ", ", out_w, ")");
 
-  TORCH_CHECK(out_h < 1 || out_w < 1,
+  TORCH_CHECK(out_h > 0 && out_w > 0,
       "Calculated output size too small - out_h: ", out_h, " out_w: ", out_w);
 
   if (gradOutput != NULL) {
