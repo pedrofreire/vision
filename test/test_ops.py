@@ -1246,8 +1246,8 @@ class DCNTester(unittest.TestCase):
 
         kernel_h = (weights_h - 1) * dil_h + 1
         kernel_w = (weights_w - 1) * dil_w + 1
-        out_h = ((in_h + 2*pad_h) - kernel_h) // stride_h + 1
-        out_w = ((in_w + 2*pad_w) - kernel_w) // stride_w + 1
+        out_h = (in_h + 2*pad_h - kernel_h) // stride_h + 1
+        out_w = (in_w + 2*pad_w - kernel_w) // stride_w + 1
 
         n_offset_grps = offsets.shape[1] // (2 * weights_h * weights_w)
         c_per_offset_grp = n_in_channels // n_offset_grps
