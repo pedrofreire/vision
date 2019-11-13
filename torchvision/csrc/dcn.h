@@ -106,7 +106,7 @@ class DCNFunction : public torch::autograd::Function<DCNFunction> {
     auto deformable_group = ctx->saved_data["deformable_group"].toInt();
     auto im2col_step = ctx->saved_data["im2col_step"].toInt();
 
-    auto grads = DCN_backward(grad_output[0],
+    std::tuple<at::Tensor> grads = DCN_backward(grad_output[0],
         input, offset, weight,
         {stride_h, stride_w},
         {pad_h, pad_w},
