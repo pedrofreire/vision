@@ -59,79 +59,6 @@ __device__ scalar_t bilinear_interpolate(const scalar_t *in, const int height, c
 }
 
 template <typename scalar_t>
-__device__ scalar_t get_gradient_weight(scalar_t argmax_h, scalar_t argmax_w,
-                                        const int h, const int w, const int height, const int width)
-{
-
-  if (argmax_h <= -1 || argmax_h >= height || argmax_w <= -1 || argmax_w >= width)
-  {
-    //empty
-    return 0;
-  }
-
-  int argmax_h_low = floor(argmax_h);
-  int argmax_w_low = floor(argmax_w);
-  int argmax_h_high = argmax_h_low + 1;
-  int argmax_w_high = argmax_w_low + 1;
-
-  scalar_t weight = 0;
-  if (h == argmax_h_low && w == argmax_w_low)
-    weight = (h + 1 - argmax_h) * (w + 1 - argmax_w);
-  if (h == argmax_h_low && w == argmax_w_high)
-    weight = (h + 1 - argmax_h) * (argmax_w + 1 - w);
-  if (h == argmax_h_high && w == argmax_w_low)
-    weight = (argmax_h + 1 - h) * (w + 1 - argmax_w);
-  if (h == argmax_h_high && w == argmax_w_high)
-    weight = (argmax_h + 1 - h) * (argmax_w + 1 - w);
-  return weight;
-}
-
-template <typename scalar_t>
-__device__ scalar_t get_coordinate_weight(scalar_t argmax_h, scalar_t argmax_w,
-                                          const int height, const int width, const scalar_t *im_data,
-                                          const int data_width, const int bp_dir)
-{
-
-  if (argmax_h <= -1 || argmax_h >= height || argmax_w <= -1 || argmax_w >= width)
-  {
-    //empty
-    return 0;
-  }
-
-  int argmax_h_low = floor(argmax_h);
-  int argmax_w_low = floor(argmax_w);
-  int argmax_h_high = argmax_h_low + 1;
-  int argmax_w_high = argmax_w_low + 1;
-
-  scalar_t weight = 0;
-
-  if (bp_dir == 0)
-  {
-    if (argmax_h_low >= 0 && argmax_w_low >= 0)
-      weight += -1 * (argmax_w_low + 1 - argmax_w) * im_data[argmax_h_low * data_width + argmax_w_low];
-    if (argmax_h_low >= 0 && argmax_w_high <= width - 1)
-      weight += -1 * (argmax_w - argmax_w_low) * im_data[argmax_h_low * data_width + argmax_w_high];
-    if (argmax_h_high <= height - 1 && argmax_w_low >= 0)
-      weight += (argmax_w_low + 1 - argmax_w) * im_data[argmax_h_high * data_width + argmax_w_low];
-    if (argmax_h_high <= height - 1 && argmax_w_high <= width - 1)
-      weight += (argmax_w - argmax_w_low) * im_data[argmax_h_high * data_width + argmax_w_high];
-  }
-  else if (bp_dir == 1)
-  {
-    if (argmax_h_low >= 0 && argmax_w_low >= 0)
-      weight += -1 * (argmax_h_low + 1 - argmax_h) * im_data[argmax_h_low * data_width + argmax_w_low];
-    if (argmax_h_low >= 0 && argmax_w_high <= width - 1)
-      weight += (argmax_h_low + 1 - argmax_h) * im_data[argmax_h_low * data_width + argmax_w_high];
-    if (argmax_h_high <= height - 1 && argmax_w_low >= 0)
-      weight += -1 * (argmax_h - argmax_h_low) * im_data[argmax_h_high * data_width + argmax_w_low];
-    if (argmax_h_high <= height - 1 && argmax_w_high <= width - 1)
-      weight += (argmax_h - argmax_h_low) * im_data[argmax_h_high * data_width + argmax_w_high];
-  }
-
-  return weight;
-}
-
-template <typename scalar_t>
 __global__ void deformable_im2col_gpu_kernel(const int n, const scalar_t* input_ptr, const scalar_t* offset_ptr,
                                              const int height, const int width, const int weight_h, const int weight_w,
                                              const int pad_h, const int pad_w, const int stride_h, const int stride_w,
@@ -215,6 +142,9 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
   TORCH_CHECK(offset.is_contiguous());
   TORCH_CHECK(weight.is_contiguous());
 
+  int in_h = input.size(2);
+  int in_w = input.size(3);
+
   int weight_h = weight.size(2);
   int weight_w = weight.size(3);
 
@@ -254,7 +184,7 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
   if (gradOutput != NULL) {
     TORCH_CHECK(gradOutput->size(1) == weight.size(0),
              "invalid number of gradOutput planes, expected: %d, but got: %d",
-             nOutputPlane, gradOutput->size(1));
+             weight.size(0), gradOutput->size(1));
 
     TORCH_CHECK((gradOutput->size(2) == out_h && gradOutput->size(3) == out_w),
            "offset output dims: (", gradOutput->size(2), ", ", gradOutput->size(3),
@@ -342,6 +272,78 @@ at::Tensor DCN_forward_cuda(
   out = out.view({n_batches, out_channels, out_h, out_w});
 
   return out;
+}
+
+
+template <typename scalar_t>
+__device__ scalar_t get_gradient_weight(scalar_t argmax_h, scalar_t argmax_w,
+                                        const int h, const int w, const int height, const int width)
+{
+
+  if (argmax_h <= -1 || argmax_h >= height || argmax_w <= -1 || argmax_w >= width)
+    return 0;
+  }
+
+  int argmax_h_low = floor(argmax_h);
+  int argmax_w_low = floor(argmax_w);
+  int argmax_h_high = argmax_h_low + 1;
+  int argmax_w_high = argmax_w_low + 1;
+
+  scalar_t weight = 0;
+  if (h == argmax_h_low && w == argmax_w_low)
+    weight = (h + 1 - argmax_h) * (w + 1 - argmax_w);
+  if (h == argmax_h_low && w == argmax_w_high)
+    weight = (h + 1 - argmax_h) * (argmax_w + 1 - w);
+  if (h == argmax_h_high && w == argmax_w_low)
+    weight = (argmax_h + 1 - h) * (w + 1 - argmax_w);
+  if (h == argmax_h_high && w == argmax_w_high)
+    weight = (argmax_h + 1 - h) * (argmax_w + 1 - w);
+  return weight;
+}
+
+template <typename scalar_t>
+__device__ scalar_t get_coordinate_weight(scalar_t argmax_h, scalar_t argmax_w,
+                                          const int height, const int width, const scalar_t *im_data,
+                                          const int data_width, const int bp_dir)
+{
+
+  if (argmax_h <= -1 || argmax_h >= height || argmax_w <= -1 || argmax_w >= width)
+  {
+    //empty
+    return 0;
+  }
+
+  int argmax_h_low = floor(argmax_h);
+  int argmax_w_low = floor(argmax_w);
+  int argmax_h_high = argmax_h_low + 1;
+  int argmax_w_high = argmax_w_low + 1;
+
+  scalar_t weight = 0;
+
+  if (bp_dir == 0)
+  {
+    if (argmax_h_low >= 0 && argmax_w_low >= 0)
+      weight += -1 * (argmax_w_low + 1 - argmax_w) * im_data[argmax_h_low * data_width + argmax_w_low];
+    if (argmax_h_low >= 0 && argmax_w_high <= width - 1)
+      weight += -1 * (argmax_w - argmax_w_low) * im_data[argmax_h_low * data_width + argmax_w_high];
+    if (argmax_h_high <= height - 1 && argmax_w_low >= 0)
+      weight += (argmax_w_low + 1 - argmax_w) * im_data[argmax_h_high * data_width + argmax_w_low];
+    if (argmax_h_high <= height - 1 && argmax_w_high <= width - 1)
+      weight += (argmax_w - argmax_w_low) * im_data[argmax_h_high * data_width + argmax_w_high];
+  }
+  else if (bp_dir == 1)
+  {
+    if (argmax_h_low >= 0 && argmax_w_low >= 0)
+      weight += -1 * (argmax_h_low + 1 - argmax_h) * im_data[argmax_h_low * data_width + argmax_w_low];
+    if (argmax_h_low >= 0 && argmax_w_high <= width - 1)
+      weight += (argmax_h_low + 1 - argmax_h) * im_data[argmax_h_low * data_width + argmax_w_high];
+    if (argmax_h_high <= height - 1 && argmax_w_low >= 0)
+      weight += -1 * (argmax_h - argmax_h_low) * im_data[argmax_h_high * data_width + argmax_w_low];
+    if (argmax_h_high <= height - 1 && argmax_w_high <= width - 1)
+      weight += (argmax_h - argmax_h_low) * im_data[argmax_h_high * data_width + argmax_w_high];
+  }
+
+  return weight;
 }
 
 
