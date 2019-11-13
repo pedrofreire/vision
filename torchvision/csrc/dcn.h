@@ -69,15 +69,16 @@ class DCNFunction : public torch::autograd::Function<DCNFunction> {
       int64_t groups,
       int64_t deformable_groups,
       int64_t im2col_step) {
-    std::pair<int, int> stride = {stride_h, stride_w};
-    std::pair<int, int> pad = {pad_h, pad_w};
-    std::pair<int, int> dilation = {dilation_h, dilation_w};
     auto output = DCN_forward(input, offset, weights,
-        stride, pad, dilation,
+        {stride_h, stride_w},
+        {pad_h, pad_w},
+        {dilation_h, dilation_w},
         groups, deformable_groups, im2col_step);
     ctx->save_for_backward({
         input, offset, weights,
-        Variable(stride), Variable(pad), Variable(dilation),
+        Variable(stride_h), Variable(stride_w),
+        Variable(pad_h), Variable(pad_w),
+        Variable(dilation_h), Variable(dilation_w),
         Variable(groups), Variable(deformable_groups), Variable(im2col_step)});
     return {output,};
   }
@@ -89,16 +90,21 @@ class DCNFunction : public torch::autograd::Function<DCNFunction> {
     auto input = saved[0];
     auto offset = saved[1];
     auto weight = saved[2];
-    auto stride = saved[3];
-    auto pad = saved[4];
-    auto dilation = saved[5];
-    auto groups = saved[6];
-    auto deformable_groups = saved[7];
-    auto im2col_step = saved[8];
+    auto stride_h = saved[3];
+    auto stride_w = saved[4];
+    auto pad_h = saved[5];
+    auto pad_w = saved[6];
+    auto dilation_h = saved[7];
+    auto dilation_w = saved[8];
+    auto groups = saved[9];
+    auto deformable_groups = saved[10];
+    auto im2col_step = saved[11];
 
     auto grads = DCN_backward(grad_output[0],
         input, offset, weight,
-        stride, pad, dilation,
+        {stride_h, stride_w},
+        {pad_h, pad_w},
+        {dilation_h, dilation_w},
         groups, deformable_groups, im2col_step);
     auto grad_input = std::get<0>(grads);
     auto grad_offset = std::get<1>(grads);

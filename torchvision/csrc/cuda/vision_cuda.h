@@ -99,7 +99,7 @@ at::Tensor DCN_forward_cuda(
 
 std::tuple<at::Tensor> DCN_backward_cuda(
     at::Tensor grad_out,
-    at::Tensor input
+    at::Tensor input,
     at::Tensor offset,
     at::Tensor weights,
     std::pair<int, int> stride,
