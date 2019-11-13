@@ -501,8 +501,8 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
 
 at::Tensor DCN_forward_cuda(
     at::Tensor input,
-    at::Tensor weight,
     at::Tensor offset,
+    at::Tensor weight,
     std::pair<int, int> stride,
     std::pair<int, int> pad,
     std::pair<int, int> dilation,
