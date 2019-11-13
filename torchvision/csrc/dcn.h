@@ -28,7 +28,7 @@ at::Tensor DCN_forward(
                     dilation, groups, deformable_groups, im2col_step);
 }
 
-std::tuple<at::Tensor> DCN_backward(
+std::tuple<at::Tensor, at::Tensor, at::Tensor> DCN_backward(
     const at::Tensor& grad,
     const Tensor& input,
     const Tensor& offset,
@@ -106,7 +106,7 @@ class DCNFunction : public torch::autograd::Function<DCNFunction> {
     auto deformable_group = ctx->saved_data["deformable_group"].toInt();
     auto im2col_step = ctx->saved_data["im2col_step"].toInt();
 
-    std::tuple<at::Tensor> grads = DCN_backward(grad_output[0],
+    auto grads = DCN_backward(grad_output[0],
         input, offset, weight,
         {stride_h, stride_w},
         {pad_h, pad_w},
