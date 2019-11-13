@@ -46,16 +46,12 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> DCN_backward_cpu(
 
   at::Tensor grad_input = at::zeros({1}, grad.options());
 
-  // handle possibly empty gradients
-  if (grad.numel() == 0) {
-    return grad_input;
-  }
-
   AT_DISPATCH_FLOATING_TYPES_AND_HALF(grad.type(), "DCN_backward", [&] {
     DCN_Backward<scalar_t>(
         grad.data_ptr<scalar_t>(),
         input.data_ptr<scalar_t>(),
         grad_input.data_ptr<scalar_t>());
   });
+
   return {grad_input, grad_input, grad_input};
 }
