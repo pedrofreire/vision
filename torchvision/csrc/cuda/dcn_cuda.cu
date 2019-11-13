@@ -208,6 +208,13 @@ void deformable_im2col(
 void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
                  at::Tensor weight, std::pair<int, int> stride, std::pair<int, int> pad,
                  std::pair<int, int> dilation, int n_weight_grps, int n_offset_grps) {
+  TORCH_CHECK(input.ndimension() == 4);
+  TORCH_CHECK(offset.ndimension() == 4);
+  TORCH_CHECK(weight.ndimension() == 4);
+  TORCH_CHECK(input.is_contiguous());
+  TORCH_CHECK(offset.is_contiguous());
+  TORCH_CHECK(weight.is_contiguous());
+
   int weight_h = weight.size(2);
   int weight_w = weight.size(3);
 
@@ -220,12 +227,10 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
   int dil_h = dilation.first;
   int dil_w = dilation.second;
 
-  TORCH_CHECK(input.ndimension() == 4);
-  TORCH_CHECK(offset.ndimension() == 4);
-  TORCH_CHECK(weight.ndimension() == 4);
-  TORCH_CHECK(input.is_contiguous());
-  TORCH_CHECK(offset.is_contiguous());
-  TORCH_CHECK(weight.is_contiguous());
+  int ker_h = dil_h * (weight_h - 1) + 1;
+  int ker_w = dil_w * (weight_w - 1) + 1;
+  int out_h = ((in_h + 2*pad_h - ker_h) / stride_h) + 1;
+  int out_w = ((in_w + 2*pad_w - ker_w) / stride_w) + 1;
 
   TORCH_CHECK(weight_h > 0 && weight_w > 0);
   TORCH_CHECK(stride_h > 0 && stride_w > 0);
@@ -247,7 +252,7 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
       "Calculated output size too small - out_h: ", out_h, " out_w: ", out_w);
 
   if (gradOutput != NULL) {
-    TORCH_CHECK(gradOutput->size(1) == nOutputPlane,
+    TORCH_CHECK(gradOutput->size(1) == weight.size(0),
              "invalid number of gradOutput planes, expected: %d, but got: %d",
              nOutputPlane, gradOutput->size(1));
 
