@@ -96,6 +96,6 @@ at::Tensor DCN_forward_cpu(
     int deformable_groups,
     int im2col_step);
 
-at::Tensor DCN_backward_cpu(
+std::tuple<at::Tensor, at::Tensor, at::Tensor> DCN_backward_cpu(
     const at::Tensor& grad, const at::Tensor& input);
 

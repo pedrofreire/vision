@@ -39,7 +39,7 @@ void DCN_Backward(
   grad_input[0] = 2 * input[0] * grad[0];
 }
 
-at::Tensor DCN_backward_cpu(
+std::tuple<at::Tensor, at::Tensor, at::Tensor> DCN_backward_cpu(
     const at::Tensor& grad, const at::Tensor& input) {
   // Check if input tensors are CPU tensors
   AT_ASSERTM(grad.device().is_cpu(), "grad must be a CPU tensor");
@@ -57,5 +57,5 @@ at::Tensor DCN_backward_cpu(
         input.data_ptr<scalar_t>(),
         grad_input.data_ptr<scalar_t>());
   });
-  return grad_input;
+  return {grad_input, grad_input, grad_input};
 }
