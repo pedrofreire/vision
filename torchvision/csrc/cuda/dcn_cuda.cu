@@ -538,7 +538,7 @@ void deformable_col2im_coord(
 
 std::tuple<at::Tensor, at::Tensor> deform_conv_backward_input_cuda(
     at::Tensor input, at::Tensor offset, at::Tensor weight,
-    at::Tensor gradOffset,
+    at::Tensor gradOutput,
     std::pair<int, int> stride,
     std::pair<int, int> pad,
     std::pair<int, int> dilation,
@@ -558,11 +558,10 @@ std::tuple<at::Tensor, at::Tensor> deform_conv_backward_input_cuda(
 
   input = input.contiguous();
   offset = offset.contiguous();
-  gradOutput = gradOutput.contiguous();
   weight = weight.contiguous();
+  gradOutput = gradOutput.contiguous();
 
-  shape_check(input, offset, &gradOutput, weight, kH, kW, dH, dW, padH, padW,
-              dilationH, dilationW, group, deformable_group);
+  shape_check(input, offset, &gradOutput, weight, stride, pad, dilation, group, deformable_group);
   AT_ASSERTM(grad.device().is_cuda(), "grad must be a CUDA tensor");
   at::DeviceGuard guard(input.device());
 
@@ -667,10 +666,10 @@ at::Tensor deform_conv_backward_parameters_cuda(
 
   input = input.contiguous();
   offset = offset.contiguous();
+  weight = weight.contiguous();
   gradOutput = gradOutput.contiguous();
 
-  shape_check(input, offset, &gradOutput, weight, kH, kW, dH, dW, padH,
-              padW, dilationH, dilationW, group, deformable_group);
+  shape_check(input, offset, &gradOutput, weight, stride, pad, dilation, group, deformable_group);
   AT_ASSERTM(grad.device().is_cuda(), "grad must be a CUDA tensor");
   at::DeviceGuard guard(input.device());
 
@@ -685,8 +684,6 @@ at::Tensor deform_conv_backward_parameters_cuda(
       (inputWidth + 2 * padW - (dilationW * (kW - 1) + 1)) / dW + 1;
   long outputHeight =
       (inputHeight + 2 * padH - (dilationH * (kH - 1) + 1)) / dH + 1;
-
-  AT_CHECK((offset.size(0) == batchSize), "invalid batch size of offset");
 
 
   auto gradWeight = at::zeros_like(weight);;
