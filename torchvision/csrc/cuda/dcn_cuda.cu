@@ -207,7 +207,7 @@ void deformable_im2col(
 
 void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
                  at::Tensor weight, std::pair<int, int> stride, std::pair<int, int> pad,
-                 std::pair<int, int> dilation, int group, int deformable_group) {
+                 std::pair<int, int> dilation, int n_weight_grps, int n_offset_grps) {
   int weight_h = weight.size(2);
   int weight_w = weight.size(3);
 
@@ -215,7 +215,7 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
   int stride_w = stride.second;
 
   int pad_h = pad.first;
-  int pad_h = pad.second;
+  int pad_w = pad.second;
 
   int dil_h = dilation.first;
   int dil_w = dilation.second;
@@ -229,8 +229,8 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
 
   TORCH_CHECK(weight_h > 0 && weight_w > 0);
   TORCH_CHECK(stride_h > 0 && stride_w > 0);
-  TORCH_CHECK(dil_h > 0 && dil_w > 0, "dil_h: " dil_w, " dil_w: ", dil_h);
-  TORCH_CHECK(pad_h >= 0 && pad_w >= 0, "pad_h: " pad_w, " pad_w: ", pad_h);
+  TORCH_CHECK(dil_h > 0 && dil_w > 0, "dil_h: ", dil_w, " dil_w: ", dil_h);
+  TORCH_CHECK(pad_h >= 0 && pad_w >= 0, "pad_h: ", pad_w, " pad_w: ", pad_h);
 
   TORCH_CHECK(weight.size(1) * n_weight_grps == input.size(1));
   TORCH_CHECK(weight.size(0) % n_weight_grps == 0);
@@ -243,20 +243,17 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
            "offset output dims: (", offset.size(2), ", ", offset.size(3),
            ") - output dims: (", out_h, ", ", out_w, ")");
 
-  TORCH_CHECK(outputWidth < 1 || outputHeight < 1,
+  TORCH_CHECK(out_h < 1 || out_w < 1,
       "Calculated output size too small - out_h: ", out_h, " out_w: ", out_w);
 
   if (gradOutput != NULL) {
-    TORCH_CHECK(gradOutput->size(dimf) == nOutputPlane,
+    TORCH_CHECK(gradOutput->size(1) == nOutputPlane,
              "invalid number of gradOutput planes, expected: %d, but got: %d",
-             nOutputPlane, gradOutput->size(dimf));
+             nOutputPlane, gradOutput->size(1));
 
-    TORCH_CHECK((gradOutput->size(dimh) == outputHeight &&
-              gradOutput->size(dimw) == outputWidth),
-             "invalid size of gradOutput, expected height: %d width: %d , but "
-             "got height: %d width: %d",
-             outputHeight, outputWidth, gradOutput->size(dimh),
-             gradOutput->size(dimw));
+    TORCH_CHECK((gradOutput->size(2) == out_h && gradOutput->size(3) == out_w),
+           "offset output dims: (", gradOutput->size(2), ", ", gradOutput->size(3),
+           ") - output dims: (", out_h, ", ", out_w, ")");
   }
 }
 
