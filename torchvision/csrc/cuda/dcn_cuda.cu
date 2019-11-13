@@ -536,7 +536,7 @@ void deformable_col2im_coord(
 
 
 
-int deform_conv_backward_input_cuda(
+std::tuple<at::Tensor, at::Tensor> deform_conv_backward_input_cuda(
     at::Tensor input, at::Tensor offset, at::Tensor weight,
     at::Tensor gradOffset,
     std::pair<int, int> stride,
@@ -757,7 +757,7 @@ at::Tensor deform_conv_backward_parameters_cuda(
 }
 
 
-std::tuple<at::Tensor> DCN_backward_cuda(
+std::tuple<at::Tensor, at::Tensor, at::Tensor> DCN_backward_cuda(
     at::Tensor grad_out,
     at::Tensor input
     at::Tensor input,
