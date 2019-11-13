@@ -1263,7 +1263,7 @@ class DCNTester(unittest.TestCase):
                         for di in range(weights_h):
                             for dj in range(weights_w):
                                 for c in range(c_per_weight_grp):
-                                    weight_grp = c_out // n_weight_grps
+                                    weight_grp = c_out // c_per_weight_grp
                                     c_in = weight_grp * c_per_weight_grp + c
                                     offset_grp = c_in // c_per_offset_grp
                                     offset_idx = 2 * (offset_grp * (weights_h * weights_w) + di * weights_w + dj)
@@ -1296,11 +1296,11 @@ class DCNTester(unittest.TestCase):
 
     @unittest.skipIf(not torch.cuda.is_available(), "CUDA unavailable")
     def test_forward_cuda(self):
-        n_weight_grps = 1
-        n_offset_grps = 1
+        n_weight_grps = 2
+        n_offset_grps = 2
         x = 10 * torch.rand(1, 2, 5, 5, device=torch.device('cuda'), dtype=torch.float64)
         offset = torch.randn(1, n_offset_grps * 8, 4, 4, device=torch.device('cuda'), dtype=torch.float64)
-        weight = torch.randn(2, 2, 2, 2, device=torch.device('cuda'), dtype=torch.float64)
+        weight = torch.randn(2, 1, 2, 2, device=torch.device('cuda'), dtype=torch.float64)
 
         res = ops.dcn(x, offset, weight)
         expected = self.expected_fn(x, offset, weight).to(device=torch.device('cuda'), dtype=torch.float64)
