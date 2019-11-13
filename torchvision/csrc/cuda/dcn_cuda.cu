@@ -757,7 +757,7 @@ at::Tensor deform_conv_backward_parameters_cuda(
 }
 
 
-at::Tensor DCN_backward_cuda(
+std::tuple<at::Tensor> DCN_backward_cuda(
     at::Tensor grad_out,
     at::Tensor input
     at::Tensor input,
@@ -783,7 +783,7 @@ at::Tensor DCN_backward_cuda(
       stride, pad, dilation,
       group, deformable_group, im2col_step);
 
-  return grad_input;
+  return {grad_input, grad_offset, grad_weight};
 }
 
 

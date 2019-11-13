@@ -82,8 +82,8 @@ class DCNFunction : public torch::autograd::Function<DCNFunction> {
     ctx->saved_data["pad_w"] = pad_w;
     ctx->saved_data["dilation_h"] = dilation_h;
     ctx->saved_data["dilation_w"] = dilation_w;
-    ctx->saved_data["group"] = group;
-    ctx->saved_data["deformable_group"] = deformable_group;
+    ctx->saved_data["groups"] = groups;
+    ctx->saved_data["deformable_groups"] = deformable_groups;
     ctx->saved_data["im2col_step"] = im2col_step;
 
     return {output,};
