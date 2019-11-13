@@ -562,7 +562,6 @@ std::tuple<at::Tensor, at::Tensor> deform_conv_backward_input_cuda(
   gradOutput = gradOutput.contiguous();
 
   shape_check(input, offset, &gradOutput, weight, stride, pad, dilation, group, deformable_group);
-  AT_ASSERTM(grad.device().is_cuda(), "grad must be a CUDA tensor");
   at::DeviceGuard guard(input.device());
 
   long batchSize = input.size(0);
@@ -670,7 +669,6 @@ at::Tensor deform_conv_backward_parameters_cuda(
   gradOutput = gradOutput.contiguous();
 
   shape_check(input, offset, &gradOutput, weight, stride, pad, dilation, group, deformable_group);
-  AT_ASSERTM(grad.device().is_cuda(), "grad must be a CUDA tensor");
   at::DeviceGuard guard(input.device());
 
   long batchSize = input.size(0);
@@ -717,7 +715,7 @@ at::Tensor deform_conv_backward_parameters_cuda(
   for (int elt = 0; elt < batchSize / im2col_step; elt++) {
     deformable_im2col(input[elt], offset[elt], nInputPlane, inputHeight,
                       inputWidth, kH, kW, padH, padW, dH, dW, dilationH,
-                      dilationW, im2col_step, deformable_group, columns);
+                      dilationW, im2col_step, gradOutput.size(2), gradOutput.size(3), deformable_group, columns);
 
     // divide into group
     gradOutputBuffer = gradOutputBuffer.view(
@@ -758,7 +756,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> DCN_backward_cuda(
     at::Tensor grad_out,
     at::Tensor input,
     at::Tensor offset,
-    at::Tensor weights,
+    at::Tensor weight,
     std::pair<int, int> stride,
     std::pair<int, int> pad,
     std::pair<int, int> dilation,
@@ -769,7 +767,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> DCN_backward_cuda(
   auto grad_input_and_offset = deform_conv_backward_input_cuda(
       input, offset, weight, grad_out,
       stride, pad, dilation,
-      group, deformable_group, im2col_step);
+      groups, deformable_groups, im2col_step);
 
   auto grad_input = std::get<0>(grad_input_and_offset);
   auto grad_offset = std::get<1>(grad_input_and_offset);
@@ -777,7 +775,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> DCN_backward_cuda(
   auto grad_weight = deform_conv_backward_parameters_cuda(
       input, offset, weight, grad_out,
       stride, pad, dilation,
-      group, deformable_group, im2col_step);
+      groups, deformable_groups, im2col_step);
 
   return {grad_input, grad_offset, grad_weight};
 }
