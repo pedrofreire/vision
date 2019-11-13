@@ -87,9 +87,9 @@ at::Tensor nms_cuda(
     const float iou_threshold);
 
 at::Tensor DCN_forward_cuda(
-    const at::Tensor& input,
-    const at::Tensor& offset,
-    const at::Tensor& weights,
+    at::Tensor input,
+    at::Tensor offset,
+    at::Tensor weights,
     std::pair<int, int> stride,
     std::pair<int, int> pad,
     std::pair<int, int> dilation,

@@ -500,21 +500,18 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
 
 
 at::Tensor DCN_forward_cuda(
-    const at::Tensor& input,
-    const at::Tensor& weight,
-    const at::Tensor& offset,
+    at::Tensor input,
+    at::Tensor weight,
+    at::Tensor offset,
     std::pair<int, int> stride,
     std::pair<int, int> pad,
     std::pair<int, int> dilation,
     int n_weight_grps, int n_offset_grps, int im2col_block) {
+
   AT_ASSERTM(input.device().is_cuda(), "input must be a CUDA tensor");
-
   int batch_size = input.size(0);
-  int out_channels = weight.size(0);
-
-  int cur_im2col_step = std::min(batch_size, im2col_step);
-  TORCH_CHECK(batch_size % cur_im2col_step == 0);
-
+  int im2col_block = std::min(batch_size, im2col_block);
+  TORCH_CHECK(batch_size % im2col_block == 0);
   shape_check(input, offset, NULL, weight, stride, pad, dilation, n_weight_grps, n_offset_grps);
 
   at::DeviceGuard guard(input.device());
@@ -526,8 +523,8 @@ at::Tensor DCN_forward_cuda(
 
   // Unpack shapes and args
   int out_channels = weight.size(0);
-  int wt_h = weight.size(2);
-  int wt_w = weight.size(3);
+  int weight_h = weight.size(2);
+  int weight_w = weight.size(3);
 
   int stride_h = stride.first;
   int stride_w = stride.second;
@@ -554,17 +551,17 @@ at::Tensor DCN_forward_cuda(
   // Separate batches into blocks
   out = out.view({n_batches / im2col_block, im2col_block, out_channels, out_h, out_w});
   input = input.view({n_batches / im2col_block, im2col_block, in_channels, in_h, in_w});
-  offset = offset.view({n_batches / im2col_block, im2col_block, n_offset_grps * 2 * wt_h * wt_w, out_h, out_w});
+  offset = offset.view({n_batches / im2col_block, im2col_block, n_offset_grps * 2 * weight_h * weight_w, out_h, out_w});
   at::Tensor out_buf = at::zeros({n_batches / im2col_block, out_channels, im2col_block * out_h, out_w}, out.options());
 
   // Separate channels into convolution groups
   out_buf = out_buf.view({out_buf.size(0), n_weight_grps, out_buf.size(1) / n_weight_grps, out_buf.size(2), out_buf.size(3)}); 
   weight = weight.view({n_weight_grps, weight.size(0) / n_weight_grps, weight.size(1), weight.size(2), weight.size(3)});
 
-  auto columns = at::zeros({in_channels * wt_h * wt_w, im2col_block * out_h * out_w}, input.options());
+  auto columns = at::zeros({in_channels * weight_h * weight_w, im2col_block * out_h * out_w}, input.options());
   for (int b = 0; b < n_batches / im2col_block; b++) {
     deformable_im2col(input[b], offset[b], in_channels, in_h,
-                      in_w, wt_w, wt_h, pad_h, pad_w, stride_h, stride_w, dil_h,
+                      in_w, weight_w, weight_h, pad_h, pad_w, stride_h, stride_w, dil_h,
                       dil_w, out_h, out_w, im2col_block, n_offset_grps, columns);
 
     columns = columns.view({n_weight_grps, columns.size(0) / n_weight_grps, columns.size(1)});
@@ -581,7 +578,7 @@ at::Tensor DCN_forward_cuda(
   out = out.view({n_batches, out_channels, out_h, out_w});
 
   input = input.view({n_batches, in_channels, in_h, in_w});
-  offset = offset.view({n_batches, 2 * n_offset_grps * wt_h * wt_w, out_h, out_w});
+  offset = offset.view({n_batches, 2 * n_offset_grps * weight_h * weight_w, out_h, out_w});
 
   return 1;
 }
