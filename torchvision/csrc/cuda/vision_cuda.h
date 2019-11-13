@@ -97,6 +97,15 @@ at::Tensor DCN_forward_cuda(
     int deformable_groups,
     int im2col_step);
 
-at::Tensor DCN_backward_cuda(
-    const at::Tensor& grad,
-    const at::Tensor& input);
+std::tuple<at::Tensor> DCN_backward_cuda(
+    at::Tensor grad_out,
+    at::Tensor input
+    at::Tensor offset,
+    at::Tensor weights,
+    std::pair<int, int> stride,
+    std::pair<int, int> pad,
+    std::pair<int, int> dilation,
+    int groups,
+    int deformable_groups,
+    int im2col_step);
+    );

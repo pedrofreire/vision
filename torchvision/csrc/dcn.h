@@ -77,8 +77,8 @@ class DCNFunction : public torch::autograd::Function<DCNFunction> {
         groups, deformable_groups, im2col_step);
     ctx->save_for_backward({
         input, offset, weights,
-        stride, pad, dilation,
-        groups, deformable_groups, im2col_step});
+        Variable(stride), Variable(pad), Variable(dilation),
+        Variable(groups), Variable(deformable_groups), Variable(im2col_step)});
     return {output,};
   }
 
@@ -104,7 +104,7 @@ class DCNFunction : public torch::autograd::Function<DCNFunction> {
     auto grad_offset = std::get<1>(grads);
     auto grad_weight = std::get<2>(grads);
 
-    return {grad_in, grad_offset, grad_weight,
+    return {grad_input, grad_offset, grad_weight,
             Variable(), Variable(), Variable(),
             Variable(), Variable(), Variable(),
             Variable(), Variable(), Variable(),};
