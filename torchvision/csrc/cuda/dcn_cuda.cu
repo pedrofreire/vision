@@ -277,10 +277,8 @@ at::Tensor DCN_forward_cuda(
 
 template <typename scalar_t>
 __device__ scalar_t get_gradient_weight(scalar_t argmax_h, scalar_t argmax_w,
-                                        const int h, const int w, const int height, const int width)
-{
-
-  if (argmax_h <= -1 || argmax_h >= height || argmax_w <= -1 || argmax_w >= width)
+                                        const int h, const int w, const int height, const int width) {
+  if (argmax_h <= -1 || argmax_h >= height || argmax_w <= -1 || argmax_w >= width) {
     return 0;
   }
 
