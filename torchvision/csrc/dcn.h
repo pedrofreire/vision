@@ -74,12 +74,18 @@ class DCNFunction : public torch::autograd::Function<DCNFunction> {
         {pad_h, pad_w},
         {dilation_h, dilation_w},
         groups, deformable_groups, im2col_step);
-    ctx->save_for_backward({
-        input, offset, weights,
-        Variable(stride_h), Variable(stride_w),
-        Variable(pad_h), Variable(pad_w),
-        Variable(dilation_h), Variable(dilation_w),
-        Variable(groups), Variable(deformable_groups), Variable(im2col_step)});
+
+    ctx->save_for_backward({input, offset, weights});
+    ctx->saved_sata["stride_h"] = stride_h;
+    ctx->saved_sata["stride_w"] = stride_w;
+    ctx->saved_sata["pad_h"] = pad_h;
+    ctx->saved_sata["pad_w"] = pad_w;
+    ctx->saved_sata["dilation_h"] = dilation_h;
+    ctx->saved_sata["dilation_w"] = dilation_w;
+    ctx->saved_sata["group"] = group;
+    ctx->saved_sata["deformable_group"] = deformable_group;
+    ctx->saved_sata["im2col_step"] = im2col_step;
+
     return {output,};
   }
 
@@ -90,15 +96,15 @@ class DCNFunction : public torch::autograd::Function<DCNFunction> {
     auto input = saved[0];
     auto offset = saved[1];
     auto weight = saved[2];
-    auto stride_h = saved[3];
-    auto stride_w = saved[4];
-    auto pad_h = saved[5];
-    auto pad_w = saved[6];
-    auto dilation_h = saved[7];
-    auto dilation_w = saved[8];
-    auto groups = saved[9];
-    auto deformable_groups = saved[10];
-    auto im2col_step = saved[11];
+    auto stride_h = ctx->saved_data["stride_h"];
+    auto stride_w = ctx->saved_data["stride_w"];
+    auto pad_h = ctx->saved_data["pad_h"];
+    auto pad_w = ctx->saved_data["pad_w"];
+    auto dilation_h = ctx->saved_data["dilation_h"];
+    auto dilation_w = ctx->saved_data["dilation_w"];
+    auto group = ctx->saved_data["group"];
+    auto deformable_group = ctx->saved_data["deformable_group"];
+    auto im2col_step = ctx->saved_data["im2col_step"];
 
     auto grads = DCN_backward(grad_output[0],
         input, offset, weight,
