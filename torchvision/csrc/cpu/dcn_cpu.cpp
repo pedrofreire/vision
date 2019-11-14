@@ -8,7 +8,7 @@
 using namespace at;
 
 template <typename scalar_t>
-scalar_t bilinear_interpolate(const scalar_t *in, const int height, const int width, scalar_t h, scalar_t w) {
+static scalar_t bilinear_interpolate(const scalar_t *in, const int height, const int width, scalar_t h, scalar_t w) {
   if (h <= -1 || height <= h || w <= -1 || width <= w) {
     return 0;
   }
@@ -42,7 +42,7 @@ scalar_t bilinear_interpolate(const scalar_t *in, const int height, const int wi
 }
 
 template <typename scalar_t>
-void deformable_im2col_kernel(const int n, const scalar_t* input_ptr, const scalar_t* offset_ptr,
+static void deformable_im2col_kernel(const int n, const scalar_t* input_ptr, const scalar_t* offset_ptr,
                                              const int height, const int width, const int weight_h, const int weight_w,
                                              const int pad_h, const int pad_w, const int stride_h, const int stride_w,
                                              const int dil_h, const int dil_w,
@@ -83,7 +83,7 @@ void deformable_im2col_kernel(const int n, const scalar_t* input_ptr, const scal
   }
 }
 
-void deformable_im2col(
+static void deformable_im2col(
     const at::Tensor input, const at::Tensor data_offset, int n_in_channels,
     int height, int width,
     int weight_h, int weight_w,
@@ -107,7 +107,7 @@ void deformable_im2col(
       }));
 }
 
-void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
+static void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
                  at::Tensor weight, std::pair<int, int> stride, std::pair<int, int> pad,
                  std::pair<int, int> dilation, int n_weight_grps, int n_offset_grps) {
   TORCH_CHECK(input.ndimension() == 4);
@@ -244,7 +244,7 @@ at::Tensor DCN_forward_cpu(
 
 
 template <typename scalar_t>
-scalar_t get_coordinate_weight(const scalar_t *im_data, const int height, const int width, scalar_t y, scalar_t x, bool is_y_direction) {
+static scalar_t get_coordinate_weight(const scalar_t *im_data, const int height, const int width, scalar_t y, scalar_t x, bool is_y_direction) {
   int y_l = floor(y);
   int x_l = floor(x);
   int y_h = y_l + 1;
@@ -272,7 +272,7 @@ scalar_t get_coordinate_weight(const scalar_t *im_data, const int height, const 
 
 
 template <typename scalar_t>
-void deformable_col2im_kernel(
+static void deformable_col2im_kernel(
     const int n, const scalar_t *col, const scalar_t *offset_ptr,
     const int channels, const int height, const int width,
     const int kernel_h, const int kernel_w,
@@ -321,7 +321,7 @@ void deformable_col2im_kernel(
   }
 }
 
-void compute_grad_input(
+static void compute_grad_input(
     const at::Tensor columns, const at::Tensor offset, const int channels,
     const int height, const int width, const int weight_h,
     const int weight_w, const int pad_h, const int pad_w,
@@ -347,7 +347,7 @@ void compute_grad_input(
 }
 
 template <typename scalar_t>
-void deformable_col2im_coord_kernel(const int n, const scalar_t *col_ptr,
+static void deformable_col2im_coord_kernel(const int n, const scalar_t *col_ptr,
                                                    const scalar_t *im_ptr, const scalar_t *offset_ptr,
                                                    const int channels, const int height, const int width,
                                                    const int weight_h, const int weight_w,
@@ -402,7 +402,7 @@ void deformable_col2im_coord_kernel(const int n, const scalar_t *col_ptr,
   }
 }
 
-void compute_grad_offset(
+static void compute_grad_offset(
     const at::Tensor columns, const at::Tensor input, const at::Tensor offset,
     const int channels, const int height, const int width, const int weight_h,
     const int weight_w, const int pad_h, const int pad_w, const int stride_h,
@@ -429,7 +429,7 @@ void compute_grad_offset(
 }
 
 
-std::tuple<at::Tensor, at::Tensor> deform_conv_backward_input_cpu(
+static std::tuple<at::Tensor, at::Tensor> deform_conv_backward_input_cpu(
     at::Tensor input, at::Tensor offset, at::Tensor weight,
     at::Tensor grad_out,
     std::pair<int, int> stride,
@@ -512,7 +512,7 @@ std::tuple<at::Tensor, at::Tensor> deform_conv_backward_input_cpu(
 
 
 
-at::Tensor deform_conv_backward_parameters_cpu(
+static at::Tensor deform_conv_backward_parameters_cpu(
     at::Tensor input, at::Tensor offset, at::Tensor weight,
     at::Tensor grad_out,
     std::pair<int, int> stride,
