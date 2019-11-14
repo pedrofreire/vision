@@ -341,7 +341,7 @@ __device__ scalar_t get_coordinate_weight(scalar_t argmax_h, scalar_t argmax_w,
 
 template <typename scalar_t>
 __global__ void deformable_col2im_gpu_kernel(
-    const int n, const scalar_t *col, const scalar_t *offset,
+    const int n, const scalar_t *col, const scalar_t *offset_ptr,
     const int channels, const int height, const int width,
     const int kernel_h, const int kernel_w,
     const int pad_h, const int pad_w,
@@ -355,7 +355,7 @@ __global__ void deformable_col2im_gpu_kernel(
   CUDA_KERNEL_LOOP(index, n)
   {
     const int j = (index / (out_w * out_h * batch_size)) % kernel_w;
-    const int i = (index / (out_w * out_h * batch_size * kernel_w) % kernel_h;
+    const int i = (index / (out_w * out_h * batch_size * kernel_w)) % kernel_h;
     const int c = index / (out_w * out_h * batch_size * kernel_w * kernel_h);
     // compute the start and end of the output
 
@@ -373,18 +373,17 @@ __global__ void deformable_col2im_gpu_kernel(
     const scalar_t y = (out_y * stride_h - pad_h) + i * dilation_h + offset_h;
     const scalar_t x = (out_x * stride_w - pad_w) + j * dilation_w + offset_w;
 
-    const scalar_t cur_top_grad = col[index];
     const int cur_h = (int)y;
     const int cur_w = (int)x;
-    for (int dy = -2; dy <= 2; dy++) {
-      for (int dx = -2; dx <= 2; dx++) {
+    for (int dy = -1; dy <= 1; dy++) {
+      for (int dx = -1; dx <= 1; dx++) {
         if (cur_h + dy >= 0 && cur_h + dy < height &&
             cur_w + dx >= 0 && cur_w + dx < width &&
-            abs(cur_inv_h_data - (cur_h + dy)) < 1 &&
-            abs(cur_inv_w_data - (cur_w + dx)) < 1) {
-          int cur_bottom_grad_pos = ((b * channels + c) * height + cur_h + dy) * width + cur_w + dx;
-          scalar_t weight = get_gradient_weight(cur_inv_h_data, cur_inv_w_data, cur_h + dy, cur_w + dx, height, width);
-          atomicAdd(grad_im + cur_bottom_grad_pos, weight * cur_top_grad);
+            abs(y - (cur_h + dy)) < 1 &&
+            abs(x - (cur_w + dx)) < 1) {
+          int grad_pos = ((b * channels + c) * height + cur_h + dy) * width + cur_w + dx;
+          scalar_t weight = get_gradient_weight(y, x, cur_h + dy, cur_w + dx, height, width);
+          atomicAdd(grad_im + grad_pos, weight * col[index]);
         }
       }
     }
