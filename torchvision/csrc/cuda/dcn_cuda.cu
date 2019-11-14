@@ -348,7 +348,7 @@ __global__ void deformable_col2im_gpu_kernel(
   }
 }
 
-void deformable_col2im(
+void compute_grad_input(
     const at::Tensor columns, const at::Tensor offset, const int channels,
     const int height, const int width, const int weight_h,
     const int weight_w, const int pad_h, const int pad_w,
@@ -366,9 +366,8 @@ void deformable_col2im(
             num_kernels,
             columns.data_ptr<scalar_t>(),
             offset.data_ptr<scalar_t>(),
-            channels, height, width, weight_h,
-            weight_w, pad_h, pad_w, stride_h, stride_w,
-            dilation_h, dilation_w,
+            channels, height, width,
+            weight_h, weight_w, pad_h, pad_w, stride_h, stride_w, dilation_h, dilation_w,
             parallel_imgs, n_offset_grps, out_h, out_w,
             grad_im.data_ptr<scalar_t>());
       }));
@@ -376,7 +375,7 @@ void deformable_col2im(
   cudaError_t err = cudaGetLastError();
   if (err != cudaSuccess)
   {
-    printf("error in deformable_col2im: %s\n", cudaGetErrorString(err));
+    printf("error in compute_grad_input: %s\n", cudaGetErrorString(err));
   }
 }
 
@@ -437,16 +436,15 @@ __global__ void deformable_col2im_coord_gpu_kernel(const int n, const scalar_t *
   }
 }
 
-void deformable_col2im_coord(
+void compute_grad_offset(
     const at::Tensor columns, const at::Tensor input, const at::Tensor offset,
-    const int channels, const int height, const int width, const int ksize_h,
-    const int ksize_w, const int pad_h, const int pad_w, const int stride_h,
+    const int channels, const int height, const int width, const int stride_h,
+    const int stride_w, const int pad_h, const int pad_w, const int stride_h,
     const int stride_w, const int dilation_h, const int dilation_w,
     const int parallel_imgs, const int n_offset_grps, at::Tensor grad_offset) {
-  int out_h = (height + 2 * pad_h - (dilation_h * (ksize_h - 1) + 1)) / stride_h + 1;
-  int out_w = (width + 2 * pad_w - (dilation_w * (ksize_w - 1) + 1)) / stride_w + 1;
-  int num_kernels = out_h * out_w * 2 * ksize_h * ksize_w * n_offset_grps * parallel_imgs;
-  int channel_per_deformable_group = channels * ksize_h * ksize_w / n_offset_grps;
+  int out_h = (height + 2 * pad_h - (dilation_h * (stride_h - 1) + 1)) / stride_h + 1;
+  int out_w = (width + 2 * pad_w - (dilation_w * (stride_w - 1) + 1)) / stride_w + 1;
+  int num_kernels = out_h * out_w * 2 * stride_h * stride_w * n_offset_grps * parallel_imgs;
 
   AT_DISPATCH_FLOATING_TYPES_AND_HALF(
       columns.scalar_type(), "deformable_col2im_coord_gpu", ([&] {
@@ -455,10 +453,9 @@ void deformable_col2im_coord(
             columns.data_ptr<scalar_t>(),
             input.data_ptr<scalar_t>(),
             offset.data_ptr<scalar_t>(),
-            channels, height, width, ksize_h,
-            ksize_w, pad_h, pad_w, stride_h, stride_w,
-            dilation_h, dilation_w, channel_per_deformable_group,
-            parallel_imgs, 2 * ksize_h * ksize_w * n_offset_grps, n_offset_grps,
+            channels, height, width,
+            stride_h, stride_w, pad_h, pad_w, stride_h, stride_w, dilation_h, dilation_w,
+            parallel_imgs, 2 * stride_h * stride_w * n_offset_grps, n_offset_grps,
             out_h, out_w,
             grad_offset.data_ptr<scalar_t>());
       }));
@@ -466,7 +463,7 @@ void deformable_col2im_coord(
   cudaError_t err = cudaGetLastError();
   if (err != cudaSuccess)
   {
-    printf("error in deformable_col2im_coord: %s\n", cudaGetErrorString(err));
+    printf("error in compute_grad_offset: %s\n", cudaGetErrorString(err));
   }
 }
 
@@ -528,14 +525,14 @@ std::tuple<at::Tensor, at::Tensor> deform_conv_backward_input_cuda(
     }
     columns = columns.view({columns.size(0) * columns.size(1), columns.size(2)});
 
-    deformable_col2im_coord(columns, input[elt], offset[elt], n_in_channels,
+    compute_grad_offset(columns, input[elt], offset[elt], n_in_channels,
                             in_h, in_w, weight_h, weight_w, pad_h, pad_w, stride_h, stride_w,
                             dil_h, dil_w, im2col_block, n_offset_grps,
                             grad_offset[elt]);
 
-    deformable_col2im(columns, offset[elt], n_in_channels, in_h,
-                      in_w, weight_h, weight_w, pad_h, pad_w, stride_h, stride_w, dil_h,
-                      dil_w, im2col_block, n_offset_grps, grad_input[elt]);
+    compute_grad_input(columns, offset[elt], n_in_channels, in_h,
+                       in_w, weight_h, weight_w, pad_h, pad_w, stride_h, stride_w, dil_h,
+                       dil_w, im2col_block, n_offset_grps, grad_input[elt]);
   }
 
   grad_out = grad_out.view(
