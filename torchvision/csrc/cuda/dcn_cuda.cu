@@ -270,7 +270,7 @@ at::Tensor DCN_forward_cuda(
 
 
 template <typename scalar_t>
-__device__ scalar_t get_coordinate_weight(const scalar_t *im_data, const int height, const int width, scalar_t y, scalar_t x, const int is_y_direction) {
+__device__ scalar_t get_coordinate_weight(const scalar_t *im_data, const int height, const int width, scalar_t y, scalar_t x, bool is_y_direction) {
   int y_l = floor(y);
   int x_l = floor(x);
   int y_h = y_l + 1;
@@ -281,16 +281,17 @@ __device__ scalar_t get_coordinate_weight(const scalar_t *im_data, const int hei
   bool valid_x_l = 0 <= y_l && y_l < width;
   bool valid_x_h = 0 <= y_h && y_h < width;
 
-  int v_yx = (valid_y_l && valid_x_l) ? im_data[y_l * width + x_l] : 0;
-  int v_yX = (valid_y_l && valid_x_h) ? im_data[y_l * width + x_h] : 0;
-  int v_Yx = (valid_y_h && valid_x_l) ? im_data[y_h * width + x_l] : 0;
-  int v_YX = (valid_y_h && valid_x_h) ? im_data[y_h * width + x_h] : 0;
+  scalar_t zero = 0;
+  scalar_t v_yx = (valid_y_l && valid_x_l) ? im_data[y_l * width + x_l] : zero;
+  scalar_t v_yX = (valid_y_l && valid_x_h) ? im_data[y_l * width + x_h] : zero;
+  scalar_t v_Yx = (valid_y_h && valid_x_l) ? im_data[y_h * width + x_l] : zero;
+  scalar_t v_YX = (valid_y_h && valid_x_h) ? im_data[y_h * width + x_h] : zero;
 
-  if (bp_dir == 0) {
-    scalar_t dx = x - x_low;
+  if (is_y_direction) {
+    scalar_t dx = x - x_l;
     return dx * (v_YX - v_yX) + (1 - dx) * (v_Yx - v_yx);
   } else {
-    scalar_t dy = y - y_low;
+    scalar_t dy = y - y_l;
     return dy * (v_YX - v_Yx) + (1 - dy) * (v_yX - v_yx);
   }
 }
@@ -338,7 +339,7 @@ __global__ void deformable_col2im_gpu_kernel(
             0 <= xp && xp < width &&
             abs(y - yp) < 1 &&
             abs(x - xp) < 1) {
-          int grad_pos = ((b * channels + c) * height + cur_h + dy) * width + cur_w + dx;
+          int grad_pos = ((b * channels + c) * height + yp) * width + xp;
           scalar_t weight = (1 - abs(y - yp)) * (1 - abs(x - xp));
           atomicAdd(grad_im + grad_pos, weight * col[index]);
         }
