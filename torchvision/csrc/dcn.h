@@ -102,8 +102,8 @@ class DCNFunction : public torch::autograd::Function<DCNFunction> {
     auto pad_w = ctx->saved_data["pad_w"].toInt();
     auto dilation_h = ctx->saved_data["dilation_h"].toInt();
     auto dilation_w = ctx->saved_data["dilation_w"].toInt();
-    auto group = ctx->saved_data["group"].toInt();
-    auto deformable_group = ctx->saved_data["deformable_group"].toInt();
+    auto groups = ctx->saved_data["groups"].toInt();
+    auto deformable_groups = ctx->saved_data["deformable_groups"].toInt();
     auto im2col_step = ctx->saved_data["im2col_step"].toInt();
 
     auto grads = DCN_backward(grad_output[0],
@@ -111,7 +111,7 @@ class DCNFunction : public torch::autograd::Function<DCNFunction> {
         {stride_h, stride_w},
         {pad_h, pad_w},
         {dilation_h, dilation_w},
-        group, deformable_group, im2col_step);
+        groups, deformable_groups, im2col_step);
     auto grad_input = std::get<0>(grads);
     auto grad_offset = std::get<1>(grads);
     auto grad_weight = std::get<2>(grads);
