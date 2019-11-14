@@ -270,8 +270,7 @@ at::Tensor DCN_forward_cuda(
 
 
 template <typename scalar_t>
-__device__ scalar_t get_coordinate_weight(scalar_t y, scalar_t x,
-    const int height, const int width, const scalar_t *im_data, const int bp_dir) {
+__device__ scalar_t get_coordinate_weight(const scalar_t *im_data, const int height, const int width, scalar_t y, scalar_t x, const int is_y_direction) {
   int y_l = floor(y);
   int x_l = floor(x);
   int y_h = y_l + 1;
@@ -382,8 +381,8 @@ void deformable_col2im(
 }
 
 template <typename scalar_t>
-__global__ void deformable_col2im_coord_gpu_kernel(const int n, const scalar_t *data_col_ptr,
-                                                   const scalar_t *data_im_ptr, const scalar_t *offset_ptr,
+__global__ void deformable_col2im_coord_gpu_kernel(const int n, const scalar_t *col_ptr,
+                                                   const scalar_t *im_ptr, const scalar_t *offset_ptr,
                                                    const int channels, const int height, const int width,
                                                    const int weight_h, const int weight_w,
                                                    const int pad_h, const int pad_w,
@@ -404,8 +403,8 @@ __global__ void deformable_col2im_coord_gpu_kernel(const int n, const scalar_t *
     const int offset_grp = c / (2 * weight_h * weight_w);
     const int col_step = weight_h * weight_w;
 
-    data_col_ptr += offset_grp * channel_per_deformable_group * batch_size * out_w * out_h;
-    data_im_ptr += (b * n_offset_grps + offset_grp) * channel_per_deformable_group / weight_h / weight_w * height * width;
+    col_ptr += offset_grp * channel_per_deformable_group * batch_size * out_w * out_h;
+    im_ptr += (b * n_offset_grps + offset_grp) * channel_per_deformable_group / weight_h / weight_w * height * width;
     offset_ptr += (b * n_offset_grps + offset_grp) * 2 * weight_h * weight_w * out_h * out_w;
 
     const int offset_c = c - offset_grp * 2 * weight_h * weight_w;
@@ -413,7 +412,7 @@ __global__ void deformable_col2im_coord_gpu_kernel(const int n, const scalar_t *
     for (int col_c = (offset_c / 2); col_c < channel_per_deformable_group; col_c += col_step)
     {
       const int col_pos = (((col_c * batch_size + b) * out_h) + h) * out_w + w;
-      const int bp_dir = offset_c % 2;
+      const int is_y_direction = offset_c % 2 == 0;
 
       int j = (col_pos / out_w / out_h / batch_size) % weight_w;
       int i = (col_pos / out_w / out_h / batch_size / weight_w) % weight_h;
@@ -428,9 +427,9 @@ __global__ void deformable_col2im_coord_gpu_kernel(const int n, const scalar_t *
       scalar_t y = (out_x * stride_w - pad_w) + i * dilation_h + offset_h;
       scalar_t x = (out_y * stride_h - pad_h) + j * dilation_w + offset_w;
 
-      const scalar_t weight = get_coordinate_weight(y, x, height, width, data_im_ptr, width, bp_dir);
-      val += weight * data_col_ptr[col_pos];
-      data_im_ptr += height * width;
+      const scalar_t weight = get_coordinate_weight(im_ptr, height, width, y, x, is_y_direction);
+      val += weight * col_ptr[col_pos];
+      im_ptr += height * width;
     }
 
     grad_offset[index] = val;
