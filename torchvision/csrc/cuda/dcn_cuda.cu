@@ -11,10 +11,6 @@
 
 using namespace at;
 
-#define CUDA_KERNEL_LOOP(i, n)                                 \
-  for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < (n); \
-       i += blockDim.x * gridDim.x)
-
 const int CUDA_NUM_THREADS = 1024;
 const int kMaxGridNum = 65535;
 
@@ -67,7 +63,7 @@ __global__ void deformable_im2col_gpu_kernel(const int n, const scalar_t* input_
                                              const int out_h, const int out_w,
                                              scalar_t* columns_ptr)
 {
-  CUDA_KERNEL_LOOP(index, n)
+  CUDA_1D_KERNEL_LOOP(index, n)
   {
     const int out_x = index % out_w;
     const int out_y = (index / out_w) % out_h;
@@ -309,7 +305,7 @@ __global__ void deformable_col2im_gpu_kernel(
     const int out_h, const int out_w,
     scalar_t *grad_im)
 {
-  CUDA_KERNEL_LOOP(index, n)
+  CUDA_1D_KERNEL_LOOP(index, n)
   {
     const int j = (index / (out_w * out_h * batch_size)) % kernel_w;
     const int i = (index / (out_w * out_h * batch_size * kernel_w)) % kernel_h;
@@ -390,7 +386,7 @@ __global__ void deformable_col2im_coord_gpu_kernel(const int n, const scalar_t *
                                                    const int batch_size, const int offset_channels, const int n_offset_grps,
                                                    const int out_h, const int out_w, scalar_t *grad_offset)
 {
-  CUDA_KERNEL_LOOP(index, n)
+  CUDA_1D_KERNEL_LOOP(index, n)
   {
     scalar_t val = 0;
     int w = index % out_w;

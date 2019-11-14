@@ -47,7 +47,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> DCN_backward(
     AT_ERROR("Not compiled with GPU support");
 #endif
   }
-  return DCN_backward_cpu(grad, input);
+  return DCN_backward_cpu(grad, input, offset, weights, stride, pad,
+                      dilation, groups, deformable_groups, im2col_step);
 }
 
 using namespace at;
