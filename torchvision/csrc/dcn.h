@@ -97,17 +97,6 @@ class DCNFunction : public torch::autograd::Function<DCNFunction> {
     auto offset = saved[1];
     auto weight = saved[2];
 
-    std::cout << "stride_h: " << ctx->saved_data["stride_h"].isInt() << "\n";
-    std::cout << "stride_w: " << ctx->saved_data["stride_w"].isInt() << "\n";
-    std::cout << "pad_h: " << ctx->saved_data["pad_h"].isInt() << "\n";
-    std::cout << "pad_w: " << ctx->saved_data["pad_w"].isInt() << "\n";
-    std::cout << "dilation_h: " << ctx->saved_data["dilation_h"].isInt() << "\n";
-    std::cout << "dilation_h: " << ctx->saved_data["dilation_h"].isInt() << "\n";
-    std::cout << "groups: " << ctx->saved_data["groups"].isInt() << "\n";
-    std::cout << "deformable_groups: " << ctx->saved_data["deformable_groups"].isInt() << "\n";
-    std::cout << "im2col_step: " << ctx->saved_data["im2col_step"].isInt() << "\n";
-
-
     auto stride_h = ctx->saved_data["stride_h"].toInt();
     auto stride_w = ctx->saved_data["stride_w"].toInt();
     auto pad_h = ctx->saved_data["pad_h"].toInt();
