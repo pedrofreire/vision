@@ -270,26 +270,28 @@ at::Tensor DCN_forward_cuda(
 
 
 template <typename scalar_t>
-__device__ scalar_t get_gradient_weight(scalar_t argmax_h, scalar_t argmax_w,
-                                        const int h, const int w, const int height, const int width) {
-  if (argmax_h <= -1 || argmax_h >= height || argmax_w <= -1 || argmax_w >= width) {
+__device__ scalar_t get_gradient_weight(scalar_t y, scalar_t x,
+                                        const int yp, const int xp, const int height, const int width) {
+  if (y <= -1 || y >= height || x <= -1 || x >= width) {
     return 0;
   }
 
-  int argmax_h_low = floor(argmax_h);
-  int argmax_w_low = floor(argmax_w);
-  int argmax_h_high = argmax_h_low + 1;
-  int argmax_w_high = argmax_w_low + 1;
+  return (1 - abs(y - yp)) * (1 - abs(x - xp));
+
+  int y_low = floor(y);
+  int x_low = floor(x);
+  int y_high = y_low + 1;
+  int x_high = x_low + 1;
 
   scalar_t weight = 0;
-  if (h == argmax_h_low && w == argmax_w_low)
-    weight = (h + 1 - argmax_h) * (w + 1 - argmax_w);
-  if (h == argmax_h_low && w == argmax_w_high)
-    weight = (h + 1 - argmax_h) * (argmax_w + 1 - w);
-  if (h == argmax_h_high && w == argmax_w_low)
-    weight = (argmax_h + 1 - h) * (w + 1 - argmax_w);
-  if (h == argmax_h_high && w == argmax_w_high)
-    weight = (argmax_h + 1 - h) * (argmax_w + 1 - w);
+  if ( && xp == x_low)
+    weight = (yp + 1 - y) * (xp + 1 - x);
+  if (yp == y_low && xp == x_high)
+    weight = (yp + 1 - y) * (x + 1 - xp);
+  if (yp == y_high && xp == x_low)
+    weight = (y + 1 - yp) * (xp + 1 - x);
+  if (yp == y_high && xp == x_high)
+    weight = (y + 1 - yp) * (x + 1 - xp);
   return weight;
 }
 
@@ -669,6 +671,9 @@ at::Tensor deform_conv_backward_parameters_cuda(
     }
     columns = columns.view({columns.size(0) * columns.size(1), columns.size(2)});
   }
+
+  input = input.view({batch_sz, n_in_channels, in_h, in_w});
+  offset = offset.view({batch_sz, n_offset_grps * 2 * weight_h * weight_w, out_h, out_w});
 
   grad_weight = grad_weight.view({grad_weight.size(0) * grad_weight.size(1),
                                 grad_weight.size(2), grad_weight.size(3), grad_weight.size(4)});
