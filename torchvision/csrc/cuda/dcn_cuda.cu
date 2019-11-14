@@ -566,30 +566,25 @@ std::tuple<at::Tensor, at::Tensor> deform_conv_backward_input_cuda(
   auto columns = at::zeros({n_in_channels * weight_w * weight_h, im2col_block * out_h * out_w}, input.options());
 
   // Separate into blocks
-  grad_out = grad_out.view({n_batches / im2col_block, im2col_block, n_out_channels, out_h, out_w});
-  grad_out.transpose_(1, 2);
 
   grad_input = grad_input.view({n_batches / im2col_block, im2col_block, n_in_channels, in_h, in_w});
   input = input.view({n_batches / im2col_block, im2col_block, n_in_channels, in_h, in_w});
   grad_offset = grad_offset.view({n_batches / im2col_block, im2col_block, deformable_group * 2 * weight_h * weight_w, out_h, out_w});
   offset = offset.view({n_batches / im2col_block, im2col_block, deformable_group * 2 * weight_h * weight_w, out_h, out_w});
 
-
+  grad_out = grad_out.view({n_batches / im2col_block, im2col_block, n_out_channels, out_h, out_w});
+  grad_out.transpose_(1, 2);
   grad_out = grad_out.view(
       {grad_out.size(0), group, grad_out.size(1) / group,
        grad_out.size(2), grad_out.size(3), grad_out.size(4)});
 
   for (int elt = 0; elt < n_batches / im2col_block; elt++) {
-    // divide into groups
+    // Separate into weight groups
     columns = columns.view({group, columns.size(0) / group, columns.size(1)});
-    weight = weight.view({group, weight.size(0) / group, weight.size(1),
-                          weight.size(2), weight.size(3)});
-
+    weight = weight.view({group, weight.size(0) / group, weight.size(1), weight.size(2), weight.size(3)});
     for (int g = 0; g < group; g++) {
-      columns[g] = columns[g].addmm_(weight[g].flatten(1).transpose(0, 1),
-                                     grad_out[elt][g].flatten(1), 0.0f, 1.0f);
+      columns[g] = columns[g].addmm_(weight[g].flatten(1).transpose(0, 1), grad_out[elt][g].flatten(1));
     }
-
     columns = columns.view({columns.size(0) * columns.size(1), columns.size(2)});
 
     deformable_col2im_coord(columns, input[elt], offset[elt], n_in_channels,
@@ -649,7 +644,6 @@ at::Tensor deform_conv_backward_parameters_cuda(
   long out_w = (in_w + 2 * pad_w - (dil_w * (weight_w - 1) + 1)) / stride_w + 1;
   long out_h = (in_h + 2 * pad_h - (dil_h * (weight_h - 1) + 1)) / stride_h + 1;
 
-
   auto grad_weight = at::zeros_like(weight);;
   auto columns = at::zeros({n_in_channels * weight_w * weight_h, im2col_block * out_h * out_w}, input.options());
 
@@ -657,9 +651,7 @@ at::Tensor deform_conv_backward_parameters_cuda(
                                 n_out_channels, out_h, out_w});
   grad_out.transpose_(1, 2);
 
-  at::Tensor grad_out_buf = at::zeros_like(grad_out);
-  grad_out_buf.copy_(grad_out);
-  grad_out_buf = grad_out_buf.view({n_batches / im2col_block, n_out_channels, im2col_block * out_h, out_w});
+  at::Tensor grad_out_buf = grad_out.copy();
   grad_out_buf = grad_out_buf.view({grad_out_buf.size(0), group, grad_out_buf.size(1) / group, grad_out_buf.size(2), grad_out_buf.size(3)});
 
   grad_out.transpose_(1, 2);
@@ -674,26 +666,18 @@ at::Tensor deform_conv_backward_parameters_cuda(
                       in_w, weight_h, weight_w, pad_h, pad_w, stride_h, stride_w, dil_h,
                       dil_w, im2col_block, grad_out.size(2), grad_out.size(3), deformable_group, columns);
 
-    // divide into group
     columns = columns.view({group, columns.size(0) / group, columns.size(1)});
-
     for (int g = 0; g < group; g++) {
       grad_weight[g] = grad_weight[g]
                           .flatten(1)
-                          .addmm_(grad_out_buf[elt][g].flatten(1),
-                                  columns[g].transpose(1, 0), 1.0, 1)
+                          .addmm_(grad_out_buf[elt][g].flatten(1), columns[g].transpose(1, 0))
                           .view_as(grad_weight[g]);
     }
     columns = columns.view({columns.size(0) * columns.size(1), columns.size(2)});
   }
 
-  input = input.view({n_batches, n_in_channels, in_h, in_w});
-  offset = offset.view(
-      {n_batches, deformable_group * 2 * weight_h * weight_w, out_h, out_w});
-
   grad_weight = grad_weight.view({grad_weight.size(0) * grad_weight.size(1),
-                                grad_weight.size(2), grad_weight.size(3),
-                                grad_weight.size(4)});
+                                grad_weight.size(2), grad_weight.size(3), grad_weight.size(4)});
   return grad_weight;
 }
 
