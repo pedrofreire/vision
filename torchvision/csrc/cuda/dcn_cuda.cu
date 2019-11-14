@@ -426,10 +426,10 @@ void deformable_col2im(
 }
 
 template <typename scalar_t>
-__global__ void deformable_col2im_coord_gpu_kernel(const int n, const scalar_t *data_col,
-                                                   const scalar_t *data_im, const scalar_t *data_offset,
+__global__ void deformable_col2im_coord_gpu_kernel(const int n, const scalar_t *data_col_ptr,
+                                                   const scalar_t *data_im_ptr, const scalar_t *data_offset_ptr,
                                                    const int channels, const int height, const int width,
-                                                   const int kernel_h, const int kernel_w,
+                                                   const int weight_h, const int weight_w,
                                                    const int pad_h, const int pad_w,
                                                    const int stride_h, const int stride_w,
                                                    const int dilation_h, const int dilation_w,
@@ -442,35 +442,33 @@ __global__ void deformable_col2im_coord_gpu_kernel(const int n, const scalar_t *
     scalar_t val = 0;
     int w = index % out_w;
     int h = (index / out_w) % out_h;
-    int c = (index / out_w / out_h) % offset_channels;
-    int b = (index / out_w / out_h) / offset_channels;
+    int c = (index / (out_w * out_h)) % offset_channels;
+    int b = index / (out_w * out_h * offset_channels);
     // compute the start and end of the output
 
-    const int offset_grp = c / (2 * kernel_h * kernel_w);
-    const int col_step = kernel_h * kernel_w;
+    const int offset_grp = c / (2 * weight_h * weight_w);
+    const int col_step = weight_h * weight_w;
     int cnt = 0;
-    const scalar_t *data_col_ptr = data_col + offset_grp * channel_per_deformable_group *
-                                                  batch_size * out_w * out_h;
-    const scalar_t *data_im_ptr = data_im + (b * n_offset_grps + offset_grp) *
-                                                channel_per_deformable_group / kernel_h / kernel_w * height * width;
-    const scalar_t *data_offset_ptr = data_offset + (b * n_offset_grps + offset_grp) * 2 *
-                                                        kernel_h * kernel_w * out_h * out_w;
 
-    const int offset_c = c - offset_grp * 2 * kernel_h * kernel_w;
+    data_col_ptr += offset_grp * channel_per_deformable_group * batch_size * out_w * out_h;
+    data_im_ptr += (b * n_offset_grps + offset_grp) * channel_per_deformable_group / weight_h / weight_w * height * width;
+    data_offset_ptr += (b * n_offset_grps + offset_grp) * 2 * weight_h * weight_w * out_h * out_w;
+
+    const int offset_c = c - offset_grp * 2 * weight_h * weight_w;
 
     for (int col_c = (offset_c / 2); col_c < channel_per_deformable_group; col_c += col_step)
     {
       const int col_pos = (((col_c * batch_size + b) * out_h) + h) * out_w + w;
       const int bp_dir = offset_c % 2;
 
-      int j = (col_pos / out_w / out_h / batch_size) % kernel_w;
-      int i = (col_pos / out_w / out_h / batch_size / kernel_w) % kernel_h;
+      int j = (col_pos / out_w / out_h / batch_size) % weight_w;
+      int i = (col_pos / out_w / out_h / batch_size / weight_w) % weight_h;
       int out_x = col_pos % out_w;
       int out_y = (col_pos / out_w) % out_h;
       int in_x = out_x * stride_w - pad_w;
       int in_y = out_y * stride_h - pad_h;
-      const int data_offset_h_ptr = (((2 * (i * kernel_w + j)) * out_h + out_y) * out_w + out_x);
-      const int data_offset_w_ptr = (((2 * (i * kernel_w + j) + 1) * out_h + out_y) * out_w + out_x);
+      const int data_offset_h_ptr = (((2 * (i * weight_w + j)) * out_h + out_y) * out_w + out_x);
+      const int data_offset_w_ptr = (((2 * (i * weight_w + j) + 1) * out_h + out_y) * out_w + out_x);
       const scalar_t offset_h = data_offset_ptr[data_offset_h_ptr];
       const scalar_t offset_w = data_offset_ptr[data_offset_w_ptr];
       scalar_t inv_h = in_y + i * dilation_h + offset_h;
@@ -562,6 +560,13 @@ std::tuple<at::Tensor, at::Tensor> deform_conv_backward_input_cuda(
 
   // Separate into blocks
 
+  std::cout << "backward_input: \n";
+  std::cout << "input.sizes(): " << input.sizes() << "\n";
+  std::cout << "offset.sizes(): " << offset.sizes() << "\n";
+  std::cout << "weight.sizes(): " << weight.sizes() << "\n";
+  std::cout << "grad_out.sizes(): " << grad_out.sizes() << "\n";
+  std::cout << "columns.sizes(): " << columns.sizes() << "\n";
+
   grad_input = grad_input.view({batch_sz / im2col_block, im2col_block, n_in_channels, in_h, in_w});
   input = input.view({batch_sz / im2col_block, im2col_block, n_in_channels, in_h, in_w});
   grad_offset = grad_offset.view({batch_sz / im2col_block, im2col_block, n_offset_grps * 2 * weight_h * weight_w, out_h, out_w});
@@ -642,6 +647,12 @@ at::Tensor deform_conv_backward_parameters_cuda(
   auto grad_weight = at::zeros_like(weight);;
   auto columns = at::zeros({n_in_channels * weight_w * weight_h, im2col_block * out_h * out_w}, input.options());
 
+  std::cout << "backward_parameters: \n";
+  std::cout << "input.sizes(): " << input.sizes() << "\n";
+  std::cout << "offset.sizes(): " << offset.sizes() << "\n";
+  std::cout << "weight.sizes(): " << weight.sizes() << "\n";
+  std::cout << "grad_out.sizes(): " << grad_out.sizes() << "\n";
+  std::cout << "columns.sizes(): " << columns.sizes() << "\n";
   grad_out = grad_out.view({batch_sz / im2col_block, im2col_block,
                                 n_out_channels, out_h, out_w});
   grad_out.transpose_(1, 2);
