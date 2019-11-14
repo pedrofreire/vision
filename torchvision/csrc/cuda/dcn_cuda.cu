@@ -12,8 +12,8 @@
 using namespace at;
 
 #define CUDA_KERNEL_LOOP(i, n)                                 \
-  for (int i = blkIdx.x * blkDim.x + threadIdx.x; i < (n); \
-       i += blkDim.x * gridDim.x)
+  for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < (n); \
+       i += blockDim.x * gridDim.x)
 
 const int CUDA_NUM_THREADS = 1024;
 const int kMaxGridNum = 65535;
@@ -193,12 +193,12 @@ at::Tensor DCN_forward_cuda(
     std::pair<int, int> stride,
     std::pair<int, int> pad,
     std::pair<int, int> dilation,
-    int n_weight_grps, int n_offset_grps, int im2col_blk) {
+    int n_weight_grps, int n_offset_grps, int im2col_block) {
 
   AT_ASSERTM(input.device().is_cuda(), "input must be a CUDA tensor");
   int batch_size = input.size(0);
-  im2col_blk = std::min(batch_size, im2col_blk);
-  TORCH_CHECK(batch_size % im2col_blk == 0);
+  im2col_block = std::min(batch_size, im2col_block);
+  TORCH_CHECK(batch_size % im2col_block == 0);
   shape_check(input, offset, NULL, weight, stride, pad, dilation, n_weight_grps, n_offset_grps);
 
   at::DeviceGuard guard(input.device());
@@ -235,22 +235,22 @@ at::Tensor DCN_forward_cuda(
 
   auto out = at::zeros({batch_sz, out_channels, out_h, out_w}, input.options());
 
-  // Separate batches into blks
-  out = out.view({batch_sz / im2col_blk, im2col_blk, out_channels, out_h, out_w});
-  input = input.view({batch_sz / im2col_blk, im2col_blk, in_channels, in_h, in_w});
-  offset = offset.view({batch_sz / im2col_blk, im2col_blk, n_offset_grps * 2 * weight_h * weight_w, out_h, out_w});
-  at::Tensor out_buf = at::zeros({batch_sz / im2col_blk, out_channels, im2col_blk * out_h, out_w}, out.options());
+  // Separate batches into blocks
+  out = out.view({batch_sz / im2col_block, im2col_block, out_channels, out_h, out_w});
+  input = input.view({batch_sz / im2col_block, im2col_block, in_channels, in_h, in_w});
+  offset = offset.view({batch_sz / im2col_block, im2col_block, n_offset_grps * 2 * weight_h * weight_w, out_h, out_w});
+  at::Tensor out_buf = at::zeros({batch_sz / im2col_block, out_channels, im2col_block * out_h, out_w}, out.options());
 
   // Separate channels into convolution groups
   out_buf = out_buf.view({out_buf.size(0), n_weight_grps, out_buf.size(1) / n_weight_grps, out_buf.size(2), out_buf.size(3)}); 
   weight = weight.view({n_weight_grps, weight.size(0) / n_weight_grps, weight.size(1), weight.size(2), weight.size(3)});
 
   // Sample points and perform convolution
-  auto columns = at::zeros({in_channels * weight_h * weight_w, im2col_blk * out_h * out_w}, input.options());
-  for (int b = 0; b < batch_sz / im2col_blk; b++) {
+  auto columns = at::zeros({in_channels * weight_h * weight_w, im2col_block * out_h * out_w}, input.options());
+  for (int b = 0; b < batch_sz / im2col_block; b++) {
     deformable_im2col(input[b], offset[b], in_channels, in_h,
                       in_w, weight_w, weight_h, pad_h, pad_w, stride_h, stride_w, dil_h,
-                      dil_w, out_h, out_w, im2col_blk, n_offset_grps, columns);
+                      dil_w, out_h, out_w, im2col_block, n_offset_grps, columns);
 
     columns = columns.view({n_weight_grps, columns.size(0) / n_weight_grps, columns.size(1)});
     for (int g = 0; g < n_weight_grps; g++) {
@@ -260,7 +260,7 @@ at::Tensor DCN_forward_cuda(
     }
   }
 
-  out_buf = out_buf.view({batch_sz / im2col_blk, out_channels, im2col_blk, out_h, out_w});
+  out_buf = out_buf.view({batch_sz / im2col_block, out_channels, im2col_block, out_h, out_w});
   out_buf.transpose_(1, 2);
   out.copy_(out_buf);
   out = out.view({batch_sz, out_channels, out_h, out_w});
@@ -475,7 +475,7 @@ std::tuple<at::Tensor, at::Tensor> deform_conv_backward_input_cuda(
     std::pair<int, int> stride,
     std::pair<int, int> pad,
     std::pair<int, int> dilation,
-    int n_weight_grps, int n_offset_grps, int im2col_blk) {
+    int n_weight_grps, int n_offset_grps, int im2col_block) {
 
   int weight_h = weight.size(2);
   int weight_w = weight.size(3);
@@ -503,21 +503,21 @@ std::tuple<at::Tensor, at::Tensor> deform_conv_backward_input_cuda(
 
   auto grad_input = at::zeros_like(input);
   auto grad_offset = at::zeros_like(offset);
-  auto columns = at::zeros({n_in_channels * weight_w * weight_h, im2col_blk * out_h * out_w}, input.options());
+  auto columns = at::zeros({n_in_channels * weight_w * weight_h, im2col_block * out_h * out_w}, input.options());
 
-  // Separate into blks
-  grad_input = grad_input.view({batch_sz / im2col_blk, im2col_blk, n_in_channels, in_h, in_w});
-  input = input.view({batch_sz / im2col_blk, im2col_blk, n_in_channels, in_h, in_w});
-  grad_offset = grad_offset.view({batch_sz / im2col_blk, im2col_blk, n_offset_grps * 2 * weight_h * weight_w, out_h, out_w});
-  offset = offset.view({batch_sz / im2col_blk, im2col_blk, n_offset_grps * 2 * weight_h * weight_w, out_h, out_w});
+  // Separate into blocks
+  grad_input = grad_input.view({batch_sz / im2col_block, im2col_block, n_in_channels, in_h, in_w});
+  input = input.view({batch_sz / im2col_block, im2col_block, n_in_channels, in_h, in_w});
+  grad_offset = grad_offset.view({batch_sz / im2col_block, im2col_block, n_offset_grps * 2 * weight_h * weight_w, out_h, out_w});
+  offset = offset.view({batch_sz / im2col_block, im2col_block, n_offset_grps * 2 * weight_h * weight_w, out_h, out_w});
 
-  grad_out = grad_out.view({batch_sz / im2col_blk, im2col_blk, n_out_channels, out_h, out_w});
+  grad_out = grad_out.view({batch_sz / im2col_block, im2col_block, n_out_channels, out_h, out_w});
   grad_out.transpose_(1, 2);
   grad_out = grad_out.view(
       {grad_out.size(0), n_weight_grps, grad_out.size(1) / n_weight_grps,
        grad_out.size(2), grad_out.size(3), grad_out.size(4)});
 
-  for (int elt = 0; elt < batch_sz / im2col_blk; elt++) {
+  for (int elt = 0; elt < batch_sz / im2col_block; elt++) {
     // Separate into weight groups
     columns = columns.view({n_weight_grps, columns.size(0) / n_weight_grps, columns.size(1)});
     weight = weight.view({n_weight_grps, weight.size(0) / n_weight_grps, weight.size(1), weight.size(2), weight.size(3)});
@@ -528,12 +528,12 @@ std::tuple<at::Tensor, at::Tensor> deform_conv_backward_input_cuda(
 
     compute_grad_offset(columns, input[elt], offset[elt], n_in_channels,
                             in_h, in_w, weight_h, weight_w, pad_h, pad_w, stride_h, stride_w,
-                            dil_h, dil_w, im2col_blk, n_offset_grps,
+                            dil_h, dil_w, im2col_block, n_offset_grps,
                             grad_offset[elt]);
 
     compute_grad_input(columns, offset[elt], n_in_channels, in_h,
                        in_w, weight_h, weight_w, pad_h, pad_w, stride_h, stride_w, dil_h,
-                       dil_w, im2col_blk, n_offset_grps, grad_input[elt]);
+                       dil_w, im2col_block, n_offset_grps, grad_input[elt]);
   }
 
   grad_out = grad_out.view(
@@ -558,7 +558,7 @@ at::Tensor deform_conv_backward_parameters_cuda(
     std::pair<int, int> stride,
     std::pair<int, int> pad,
     std::pair<int, int> dilation,
-    int n_weight_grps, int n_offset_grps, int im2col_blk) {
+    int n_weight_grps, int n_offset_grps, int im2col_block) {
   int weight_h = weight.size(2);
   int weight_w = weight.size(3);
 
@@ -584,28 +584,28 @@ at::Tensor deform_conv_backward_parameters_cuda(
   long out_h = grad_out.size(3);
 
   auto grad_weight = at::zeros_like(weight);;
-  auto columns = at::zeros({n_in_channels * weight_w * weight_h, im2col_blk * out_h * out_w}, input.options());
+  auto columns = at::zeros({n_in_channels * weight_w * weight_h, im2col_block * out_h * out_w}, input.options());
 
-  grad_out = grad_out.view({batch_sz / im2col_blk, im2col_blk,
+  grad_out = grad_out.view({batch_sz / im2col_block, im2col_block,
                                 n_out_channels, out_h, out_w});
   grad_out.transpose_(1, 2);
 
   at::Tensor grad_out_buf = at::zeros_like(grad_out);
   grad_out_buf.copy_(grad_out);
-  grad_out_buf = grad_out_buf.view({batch_sz / im2col_blk, n_out_channels, im2col_blk * out_h, out_w});
+  grad_out_buf = grad_out_buf.view({batch_sz / im2col_block, n_out_channels, im2col_block * out_h, out_w});
   grad_out_buf = grad_out_buf.view({grad_out_buf.size(0), n_weight_grps, grad_out_buf.size(1) / n_weight_grps, grad_out_buf.size(2), grad_out_buf.size(3)});
 
   grad_out.transpose_(1, 2);
   grad_out = grad_out.view({batch_sz, n_out_channels, out_h, out_w});
 
-  input = input.view({batch_sz / im2col_blk, im2col_blk, n_in_channels, in_h, in_w});
-  offset = offset.view({batch_sz / im2col_blk, im2col_blk, n_offset_grps * 2 * weight_h * weight_w, out_h, out_w});
+  input = input.view({batch_sz / im2col_block, im2col_block, n_in_channels, in_h, in_w});
+  offset = offset.view({batch_sz / im2col_block, im2col_block, n_offset_grps * 2 * weight_h * weight_w, out_h, out_w});
 
   grad_weight = grad_weight.view({n_weight_grps, grad_weight.size(0) / n_weight_grps, grad_weight.size(1), grad_weight.size(2), grad_weight.size(3)});
-  for (int elt = 0; elt < batch_sz / im2col_blk; elt++) {
+  for (int elt = 0; elt < batch_sz / im2col_block; elt++) {
     deformable_im2col(input[elt], offset[elt], n_in_channels, in_h,
                       in_w, weight_h, weight_w, pad_h, pad_w, stride_h, stride_w, dil_h,
-                      dil_w, im2col_blk, out_h, out_w, n_offset_grps, columns);
+                      dil_w, im2col_block, out_h, out_w, n_offset_grps, columns);
 
     columns = columns.view({n_weight_grps, columns.size(0) / n_weight_grps, columns.size(1)});
     for (int g = 0; g < n_weight_grps; g++) {
