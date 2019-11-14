@@ -270,32 +270,6 @@ at::Tensor DCN_forward_cuda(
 
 
 template <typename scalar_t>
-__device__ scalar_t get_gradient_weight(scalar_t y, scalar_t x,
-                                        const int yp, const int xp, const int height, const int width) {
-  if (y <= -1 || y >= height || x <= -1 || x >= width) {
-    return 0;
-  }
-
-  return (1 - abs(y - yp)) * (1 - abs(x - xp));
-
-  int y_low = floor(y);
-  int x_low = floor(x);
-  int y_high = y_low + 1;
-  int x_high = x_low + 1;
-
-  scalar_t weight = 0;
-  if (yp == y_low && xp == x_low)
-    weight = (yp + 1 - y) * (xp + 1 - x);
-  if (yp == y_low && xp == x_high)
-    weight = (yp + 1 - y) * (x + 1 - xp);
-  if (yp == y_high && xp == x_low)
-    weight = (y + 1 - yp) * (xp + 1 - x);
-  if (yp == y_high && xp == x_high)
-    weight = (y + 1 - yp) * (x + 1 - xp);
-  return weight;
-}
-
-template <typename scalar_t>
 __device__ scalar_t get_coordinate_weight(scalar_t argmax_h, scalar_t argmax_w,
                                           const int height, const int width, const scalar_t *im_data,
                                           const int data_width, const int bp_dir)
@@ -375,16 +349,16 @@ __global__ void deformable_col2im_gpu_kernel(
     const scalar_t y = (out_y * stride_h - pad_h) + i * dilation_h + offset_h;
     const scalar_t x = (out_x * stride_w - pad_w) + j * dilation_w + offset_w;
 
-    const int cur_h = (int)y;
-    const int cur_w = (int)x;
     for (int dy = -1; dy <= 1; dy++) {
       for (int dx = -1; dx <= 1; dx++) {
-        if (cur_h + dy >= 0 && cur_h + dy < height &&
-            cur_w + dx >= 0 && cur_w + dx < width &&
-            abs(y - (cur_h + dy)) < 1 &&
-            abs(x - (cur_w + dx)) < 1) {
+        int yp = int(y) + dy;
+        int xp = int(x) + dx;
+        if (0 <= yp && yp < height &&
+            0 <= xp && xp < width &&
+            abs(y - yp) < 1 &&
+            abs(x - xp) < 1) {
           int grad_pos = ((b * channels + c) * height + cur_h + dy) * width + cur_w + dx;
-          scalar_t weight = get_gradient_weight(y, x, cur_h + dy, cur_w + dx, height, width);
+          scalar_t weight = (1 - abs(y - yp)) * (1 - abs(x - xp));
           atomicAdd(grad_im + grad_pos, weight * col[index]);
         }
       }
