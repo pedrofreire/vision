@@ -560,27 +560,16 @@ std::tuple<at::Tensor, at::Tensor> deform_conv_backward_input_cuda(
 
   // Separate into blocks
 
-  std::cout << "backward_input: \n";
-  std::cout << "input.sizes(): " << input.sizes() << "\n";
-  std::cout << "offset.sizes(): " << offset.sizes() << "\n";
-  std::cout << "weight.sizes(): " << weight.sizes() << "\n";
-  std::cout << "grad_out.sizes(): " << grad_out.sizes() << "\n";
-  std::cout << "columns.sizes(): " << columns.sizes() << "\n";
-
-  std::cout << "A\n";
   grad_input = grad_input.view({batch_sz / im2col_block, im2col_block, n_in_channels, in_h, in_w});
   input = input.view({batch_sz / im2col_block, im2col_block, n_in_channels, in_h, in_w});
   grad_offset = grad_offset.view({batch_sz / im2col_block, im2col_block, n_offset_grps * 2 * weight_h * weight_w, out_h, out_w});
   offset = offset.view({batch_sz / im2col_block, im2col_block, n_offset_grps * 2 * weight_h * weight_w, out_h, out_w});
 
-  std::cout << "B\n";
   grad_out = grad_out.view({batch_sz / im2col_block, im2col_block, n_out_channels, out_h, out_w});
   grad_out.transpose_(1, 2);
-  std::cout << "C\n";
   grad_out = grad_out.view(
       {grad_out.size(0), n_weight_grps, grad_out.size(1) / n_weight_grps,
        grad_out.size(2), grad_out.size(3), grad_out.size(4)});
-  std::cout << "D\n";
 
   for (int elt = 0; elt < batch_sz / im2col_block; elt++) {
     // Separate into weight groups
@@ -601,14 +590,11 @@ std::tuple<at::Tensor, at::Tensor> deform_conv_backward_input_cuda(
                       dil_w, im2col_block, n_offset_grps, grad_input[elt]);
   }
 
-  std::cout << "E\n";
   grad_out = grad_out.view(
       {grad_out.size(0), grad_out.size(1) * grad_out.size(2),
        grad_out.size(3), grad_out.size(4), grad_out.size(5)});
-  std::cout << "F\n";
   grad_out.transpose_(1, 2);
   grad_out = grad_out.view({batch_sz, n_out_channels, out_h, out_w});
-  std::cout << "G\n";
 
   grad_input = grad_input.view({batch_sz, n_in_channels, in_h, in_w});
   input = input.view({batch_sz, n_in_channels, in_h, in_w});
@@ -654,27 +640,17 @@ at::Tensor deform_conv_backward_parameters_cuda(
   auto grad_weight = at::zeros_like(weight);;
   auto columns = at::zeros({n_in_channels * weight_w * weight_h, im2col_block * out_h * out_w}, input.options());
 
-  std::cout << "backward_parameters: \n";
-  std::cout << "input.sizes(): " << input.sizes() << "\n";
-  std::cout << "offset.sizes(): " << offset.sizes() << "\n";
-  std::cout << "weight.sizes(): " << weight.sizes() << "\n";
-  std::cout << "grad_out.sizes(): " << grad_out.sizes() << "\n";
-  std::cout << "columns.sizes(): " << columns.sizes() << "\n";
-
-  std::cout << "J\n";
   grad_out = grad_out.view({batch_sz / im2col_block, im2col_block,
                                 n_out_channels, out_h, out_w});
   grad_out.transpose_(1, 2);
 
   at::Tensor grad_out_buf = at::zeros_like(grad_out);
   grad_out_buf.copy_(grad_out);
-  std::cout << "K\n";
+  grad_out_buf = grad_out_buf.view({n_batches / im2col_block, n_out_channels, im2col_block * out_h, out_w});
   grad_out_buf = grad_out_buf.view({grad_out_buf.size(0), n_weight_grps, grad_out_buf.size(1) / n_weight_grps, grad_out_buf.size(2), grad_out_buf.size(3)});
 
-  std::cout << "L\n";
   grad_out.transpose_(1, 2);
   grad_out = grad_out.view({batch_sz, n_out_channels, out_h, out_w});
-  std::cout << "M\n";
 
   input = input.view({batch_sz / im2col_block, im2col_block, n_in_channels, in_h, in_w});
   offset = offset.view({batch_sz / im2col_block, im2col_block, n_offset_grps * 2 * weight_h * weight_w, out_h, out_w});
@@ -695,7 +671,6 @@ at::Tensor deform_conv_backward_parameters_cuda(
     columns = columns.view({columns.size(0) * columns.size(1), columns.size(2)});
   }
 
-  std::cout << "N\n";
   input = input.view({batch_sz, n_in_channels, in_h, in_w});
   offset = offset.view({batch_sz, n_offset_grps * 2 * weight_h * weight_w, out_h, out_w});
 
