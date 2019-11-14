@@ -63,7 +63,7 @@ __global__ void deformable_im2col_gpu_kernel(const int n, const scalar_t* input_
                                              const int height, const int width, const int weight_h, const int weight_w,
                                              const int pad_h, const int pad_w, const int stride_h, const int stride_w,
                                              const int dil_h, const int dil_w,
-                                             const int batch_sz, const int n_in_channels, const int deformable_group,
+                                             const int batch_sz, const int n_in_channels, const int n_offset_grps,
                                              const int out_h, const int out_w,
                                              scalar_t* columns_ptr)
 {
@@ -75,8 +75,8 @@ __global__ void deformable_im2col_gpu_kernel(const int n, const scalar_t* input_
     const int in_c = index / (out_w * out_h * batch_sz);
     const int out_c = in_c * weight_h * weight_w;
 
-    int channel_per_deformable_group = n_in_channels / deformable_group;
-    const int grp_idx = in_c / channel_per_deformable_group;
+    int c_per_offset_grp = n_in_channels / n_offset_grps;
+    const int grp_idx = in_c / c_per_offset_grp;
 
     columns_ptr += (out_c * (batch_sz * out_h * out_w)
                   + out_b * (out_h * out_w)
@@ -86,7 +86,7 @@ __global__ void deformable_im2col_gpu_kernel(const int n, const scalar_t* input_
     input_ptr += (out_b * (n_in_channels * height * width)
                  + in_c * (height * width));
 
-    offset_ptr += (out_b * deformable_group + grp_idx) * 2 * weight_h * weight_w * out_h * out_w;
+    offset_ptr += (out_b * n_offset_grps + grp_idx) * 2 * weight_h * weight_w * out_h * out_w;
 
     for (int i = 0; i < weight_h; ++i) {
       for (int j = 0; j < weight_w; ++j) {
@@ -305,7 +305,6 @@ __global__ void deformable_col2im_gpu_kernel(
     const int pad_h, const int pad_w,
     const int stride_h, const int stride_w,
     const int dilation_h, const int dilation_w,
-    const int channel_per_deformable_group,
     const int batch_size, const int n_offset_grps,
     const int out_h, const int out_w,
     scalar_t *grad_im)
@@ -317,7 +316,8 @@ __global__ void deformable_col2im_gpu_kernel(
     const int c = index / (out_w * out_h * batch_size * kernel_w * kernel_h);
     // compute the start and end of the output
 
-    const int offset_grp = c / channel_per_deformable_group;
+    int c_per_offset_grp = channels / n_offset_grps;
+    const int offset_grp = c / c_per_offset_grp;
 
     int out_x = index % out_w;
     int out_y = (index / out_w) % out_h;
@@ -359,7 +359,6 @@ void deformable_col2im(
   int out_h = (height + 2 * pad_h - (dilation_h * (weight_h - 1) + 1)) / stride_h + 1;
   int out_w = (width + 2 * pad_w - (dilation_w * (weight_w - 1) + 1)) / stride_w + 1;
   int num_kernels = channels * weight_h * weight_w * out_h * out_w * parallel_imgs;
-  int channel_per_deformable_group = channels / n_offset_grps;
 
   AT_DISPATCH_FLOATING_TYPES_AND_HALF(
       columns.scalar_type(), "deformable_col2im_gpu", ([&] {
@@ -369,7 +368,7 @@ void deformable_col2im(
             offset.data_ptr<scalar_t>(),
             channels, height, width, weight_h,
             weight_w, pad_h, pad_w, stride_h, stride_w,
-            dilation_h, dilation_w, channel_per_deformable_group,
+            dilation_h, dilation_w,
             parallel_imgs, n_offset_grps, out_h, out_w,
             grad_im.data_ptr<scalar_t>());
       }));
@@ -389,7 +388,6 @@ __global__ void deformable_col2im_coord_gpu_kernel(const int n, const scalar_t *
                                                    const int pad_h, const int pad_w,
                                                    const int stride_h, const int stride_w,
                                                    const int dilation_h, const int dilation_w,
-                                                   const int channel_per_deformable_group,
                                                    const int batch_size, const int offset_channels, const int n_offset_grps,
                                                    const int out_h, const int out_w, scalar_t *grad_offset)
 {
@@ -404,21 +402,23 @@ __global__ void deformable_col2im_coord_gpu_kernel(const int n, const scalar_t *
     const int offset_grp = c / (2 * weight_h * weight_w);
     const int col_step = weight_h * weight_w;
 
-    col_ptr += offset_grp * channel_per_deformable_group * batch_size * out_w * out_h;
-    im_ptr += (b * n_offset_grps + offset_grp) * channel_per_deformable_group / weight_h / weight_w * height * width;
+    int c_per_offset_grp = channels / n_offset_grps;
+
+    col_ptr += offset_grp * c_per_offset_grp * weight_h * weight_w * batch_size * out_w * out_h;
+    im_ptr += (b * n_offset_grps + offset_grp) * c_per_offset_grp  * height * width;
     offset_ptr += (b * n_offset_grps + offset_grp) * 2 * weight_h * weight_w * out_h * out_w;
 
     const int offset_c = c - offset_grp * 2 * weight_h * weight_w;
+    const int is_y_direction = offset_c % 2 == 0;
 
-    for (int col_c = (offset_c / 2); col_c < channel_per_deformable_group; col_c += col_step)
-    {
+    const int c_bound = c_per_offset_grp * weight_h * weight_w;
+    for (int col_c = (offset_c / 2); col_c < c_bound; col_c += col_step) {
       const int col_pos = (((col_c * batch_size + b) * out_h) + h) * out_w + w;
-      const int is_y_direction = offset_c % 2 == 0;
 
-      int j = (col_pos / out_w / out_h / batch_size) % weight_w;
-      int i = (col_pos / out_w / out_h / batch_size / weight_w) % weight_h;
       int out_x = col_pos % out_w;
       int out_y = (col_pos / out_w) % out_h;
+      int j = (col_pos / (out_w * out_h * batch_size)) % weight_w;
+      int i = (col_pos / (out_w * out_h * batch_size * weight_w)) % weight_h;
 
       const int offset_h_ptr = (((2 * (i * weight_w + j)) * out_h + out_y) * out_w + out_x);
       const int offset_w_ptr = (((2 * (i * weight_w + j) + 1) * out_h + out_y) * out_w + out_x);
@@ -508,7 +508,6 @@ std::tuple<at::Tensor, at::Tensor> deform_conv_backward_input_cuda(
   auto columns = at::zeros({n_in_channels * weight_w * weight_h, im2col_block * out_h * out_w}, input.options());
 
   // Separate into blocks
-
   grad_input = grad_input.view({batch_sz / im2col_block, im2col_block, n_in_channels, in_h, in_w});
   input = input.view({batch_sz / im2col_block, im2col_block, n_in_channels, in_h, in_w});
   grad_offset = grad_offset.view({batch_sz / im2col_block, im2col_block, n_offset_grps * 2 * weight_h * weight_w, out_h, out_w});
