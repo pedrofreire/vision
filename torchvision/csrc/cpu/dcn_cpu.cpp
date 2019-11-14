@@ -314,7 +314,7 @@ void deformable_col2im_kernel(
             abs(x - xp) < 1) {
           int grad_pos = ((b * channels + c) * height + yp) * width + xp;
           scalar_t weight = (1 - abs(y - yp)) * (1 - abs(x - xp));
-          atomicAdd(grad_im + grad_pos, weight * col[index]);
+          grad_im[grad_pos] += weight * col[index];
         }
       }
     }
