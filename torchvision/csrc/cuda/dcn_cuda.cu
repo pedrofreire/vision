@@ -270,48 +270,30 @@ at::Tensor DCN_forward_cuda(
 
 
 template <typename scalar_t>
-__device__ scalar_t get_coordinate_weight(scalar_t argmax_h, scalar_t argmax_w,
-                                          const int height, const int width, const scalar_t *im_data,
-                                          const int data_width, const int bp_dir)
-{
+__device__ scalar_t get_coordinate_weight(scalar_t y, scalar_t x,
+    const int height, const int width, const scalar_t *im_data, const int bp_dir) {
+  int y_l = floor(y);
+  int x_l = floor(x);
+  int y_h = y_l + 1;
+  int x_h = x_l + 1;
 
-  if (argmax_h <= -1 || argmax_h >= height || argmax_w <= -1 || argmax_w >= width)
-  {
-    //empty
-    return 0;
+  bool valid_y_l = 0 <= y_l && y_l < height;
+  bool valid_y_h = 0 <= y_h && y_h < height;
+  bool valid_x_l = 0 <= y_l && y_l < width;
+  bool valid_x_h = 0 <= y_h && y_h < width;
+
+  int v_yx = (valid_y_l && valid_x_l) ? im_data[y_l * width + x_l] : 0;
+  int v_yX = (valid_y_l && valid_x_h) ? im_data[y_l * width + x_h] : 0;
+  int v_Yx = (valid_y_h && valid_x_l) ? im_data[y_h * width + x_l] : 0;
+  int v_YX = (valid_y_h && valid_x_h) ? im_data[y_h * width + x_h] : 0;
+
+  if (bp_dir == 0) {
+    scalar_t dx = x - x_low;
+    return dx * (v_YX - v_yX) + (1 - dx) * (v_Yx - v_yx);
+  } else {
+    scalar_t dy = y - y_low;
+    return dy * (v_YX - v_Yx) + (1 - dy) * (v_yX - v_yx);
   }
-
-  int argmax_h_low = floor(argmax_h);
-  int argmax_w_low = floor(argmax_w);
-  int argmax_h_high = argmax_h_low + 1;
-  int argmax_w_high = argmax_w_low + 1;
-
-  scalar_t weight = 0;
-
-  if (bp_dir == 0)
-  {
-    if (argmax_h_low >= 0 && argmax_w_low >= 0)
-      weight += -1 * (argmax_w_low + 1 - argmax_w) * im_data[argmax_h_low * data_width + argmax_w_low];
-    if (argmax_h_low >= 0 && argmax_w_high <= width - 1)
-      weight += -1 * (argmax_w - argmax_w_low) * im_data[argmax_h_low * data_width + argmax_w_high];
-    if (argmax_h_high <= height - 1 && argmax_w_low >= 0)
-      weight += (argmax_w_low + 1 - argmax_w) * im_data[argmax_h_high * data_width + argmax_w_low];
-    if (argmax_h_high <= height - 1 && argmax_w_high <= width - 1)
-      weight += (argmax_w - argmax_w_low) * im_data[argmax_h_high * data_width + argmax_w_high];
-  }
-  else if (bp_dir == 1)
-  {
-    if (argmax_h_low >= 0 && argmax_w_low >= 0)
-      weight += -1 * (argmax_h_low + 1 - argmax_h) * im_data[argmax_h_low * data_width + argmax_w_low];
-    if (argmax_h_low >= 0 && argmax_w_high <= width - 1)
-      weight += (argmax_h_low + 1 - argmax_h) * im_data[argmax_h_low * data_width + argmax_w_high];
-    if (argmax_h_high <= height - 1 && argmax_w_low >= 0)
-      weight += -1 * (argmax_h - argmax_h_low) * im_data[argmax_h_high * data_width + argmax_w_low];
-    if (argmax_h_high <= height - 1 && argmax_w_high <= width - 1)
-      weight += (argmax_h - argmax_h_low) * im_data[argmax_h_high * data_width + argmax_w_high];
-  }
-
-  return weight;
 }
 
 
@@ -401,7 +383,7 @@ void deformable_col2im(
 
 template <typename scalar_t>
 __global__ void deformable_col2im_coord_gpu_kernel(const int n, const scalar_t *data_col_ptr,
-                                                   const scalar_t *data_im_ptr, const scalar_t *data_offset_ptr,
+                                                   const scalar_t *data_im_ptr, const scalar_t *offset_ptr,
                                                    const int channels, const int height, const int width,
                                                    const int weight_h, const int weight_w,
                                                    const int pad_h, const int pad_w,
@@ -418,15 +400,13 @@ __global__ void deformable_col2im_coord_gpu_kernel(const int n, const scalar_t *
     int h = (index / out_w) % out_h;
     int c = (index / (out_w * out_h)) % offset_channels;
     int b = index / (out_w * out_h * offset_channels);
-    // compute the start and end of the output
 
     const int offset_grp = c / (2 * weight_h * weight_w);
     const int col_step = weight_h * weight_w;
-    int cnt = 0;
 
     data_col_ptr += offset_grp * channel_per_deformable_group * batch_size * out_w * out_h;
     data_im_ptr += (b * n_offset_grps + offset_grp) * channel_per_deformable_group / weight_h / weight_w * height * width;
-    data_offset_ptr += (b * n_offset_grps + offset_grp) * 2 * weight_h * weight_w * out_h * out_w;
+    offset_ptr += (b * n_offset_grps + offset_grp) * 2 * weight_h * weight_w * out_h * out_w;
 
     const int offset_c = c - offset_grp * 2 * weight_h * weight_w;
 
@@ -439,23 +419,18 @@ __global__ void deformable_col2im_coord_gpu_kernel(const int n, const scalar_t *
       int i = (col_pos / out_w / out_h / batch_size / weight_w) % weight_h;
       int out_x = col_pos % out_w;
       int out_y = (col_pos / out_w) % out_h;
-      int in_x = out_x * stride_w - pad_w;
-      int in_y = out_y * stride_h - pad_h;
-      const int data_offset_h_ptr = (((2 * (i * weight_w + j)) * out_h + out_y) * out_w + out_x);
-      const int data_offset_w_ptr = (((2 * (i * weight_w + j) + 1) * out_h + out_y) * out_w + out_x);
-      const scalar_t offset_h = data_offset_ptr[data_offset_h_ptr];
-      const scalar_t offset_w = data_offset_ptr[data_offset_w_ptr];
-      scalar_t inv_h = in_y + i * dilation_h + offset_h;
-      scalar_t inv_w = in_x + j * dilation_w + offset_w;
-      if (inv_h <= -1 || inv_w <= -1 || inv_h >= height || inv_w >= width)
-      {
-        inv_h = inv_w = -2;
-      }
-      const scalar_t weight = get_coordinate_weight(
-          inv_h, inv_w,
-          height, width, data_im_ptr + cnt * height * width, width, bp_dir);
+
+      const int offset_h_ptr = (((2 * (i * weight_w + j)) * out_h + out_y) * out_w + out_x);
+      const int offset_w_ptr = (((2 * (i * weight_w + j) + 1) * out_h + out_y) * out_w + out_x);
+      const scalar_t offset_h = offset_ptr[offset_h_ptr];
+      const scalar_t offset_w = offset_ptr[offset_w_ptr];
+
+      scalar_t y = (out_x * stride_w - pad_w) + i * dilation_h + offset_h;
+      scalar_t x = (out_y * stride_h - pad_h) + j * dilation_w + offset_w;
+
+      const scalar_t weight = get_coordinate_weight(y, x, height, width, data_im_ptr, width, bp_dir);
       val += weight * data_col_ptr[col_pos];
-      cnt += 1;
+      data_im_ptr += height * width;
     }
 
     grad_offset[index] = val;
