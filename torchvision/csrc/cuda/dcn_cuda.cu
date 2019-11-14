@@ -284,7 +284,7 @@ __device__ scalar_t get_gradient_weight(scalar_t y, scalar_t x,
   int x_high = x_low + 1;
 
   scalar_t weight = 0;
-  if ( && xp == x_low)
+  if (yp == y_low && xp == x_low)
     weight = (yp + 1 - y) * (xp + 1 - x);
   if (yp == y_low && xp == x_high)
     weight = (yp + 1 - y) * (x + 1 - xp);
