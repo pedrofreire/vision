@@ -646,7 +646,7 @@ at::Tensor deform_conv_backward_parameters_cuda(
 
   at::Tensor grad_out_buf = at::zeros_like(grad_out);
   grad_out_buf.copy_(grad_out);
-  grad_out_buf = grad_out_buf.view({n_batches / im2col_block, n_out_channels, im2col_block * out_h, out_w});
+  grad_out_buf = grad_out_buf.view({batch_sz / im2col_block, n_out_channels, im2col_block * out_h, out_w});
   grad_out_buf = grad_out_buf.view({grad_out_buf.size(0), n_weight_grps, grad_out_buf.size(1) / n_weight_grps, grad_out_buf.size(2), grad_out_buf.size(3)});
 
   grad_out.transpose_(1, 2);
