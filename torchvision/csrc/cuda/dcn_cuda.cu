@@ -559,12 +559,12 @@ std::tuple<at::Tensor, at::Tensor> deform_conv_backward_input_cuda(
   long out_w = (in_w + 2 * pad_w - (dil_w * (weight_w - 1) + 1)) / stride_w + 1;
   long out_h = (in_h + 2 * pad_h - (dil_h * (weight_h - 1) + 1)) / stride_h + 1;
 
-  TORCH_CHECK(grad_out->size(1) == weight.size(0),
-      "output filters in grad: ", grad_out->size(1),
+  TORCH_CHECK(grad_out.size(1) == weight.size(0),
+      "output filters in grad: ", grad_out.size(1),
       "output filters in weight: ", weight.size(0),
       );
-  TORCH_CHECK((grad_out->size(2) == out_h && grad_out->size(3) == out_w),
-         "grad_out dims: (", grad_out->size(2), ", ", grad_out->size(3), ") - ",
+  TORCH_CHECK((grad_out.size(2) == out_h && grad_out.size(3) == out_w),
+         "grad_out dims: (", grad_out.size(2), ", ", grad_out.size(3), ") - ",
          "output dims: (", out_h, ", ", out_w, ")");
 
   at::DeviceGuard guard(input.device());
@@ -645,12 +645,6 @@ at::Tensor deform_conv_backward_parameters_cuda(
   int dil_h = dilation.first;
   int dil_w = dilation.second;
 
-  input = input.contiguous();
-  offset = offset.contiguous();
-  weight = weight.contiguous();
-  grad_out = grad_out.contiguous();
-
-  shape_check(input, offset, &grad_out, weight, stride, pad, dilation, group, deformable_group);
   at::DeviceGuard guard(input.device());
 
   long n_batches = input.size(0);
@@ -660,29 +654,20 @@ at::Tensor deform_conv_backward_parameters_cuda(
 
   long n_out_channels = weight.size(0);
 
-  long out_w =
-      (in_w + 2 * pad_w - (dil_w * (weight_w - 1) + 1)) / stride_w + 1;
-  long out_h =
-      (in_h + 2 * pad_h - (dil_h * (weight_h - 1) + 1)) / stride_h + 1;
+  long out_w = (in_w + 2 * pad_w - (dil_w * (weight_w - 1) + 1)) / stride_w + 1;
+  long out_h = (in_h + 2 * pad_h - (dil_h * (weight_h - 1) + 1)) / stride_h + 1;
 
 
   auto grad_weight = at::zeros_like(weight);;
-  auto columns = at::zeros(
-      {n_in_channels * weight_w * weight_h, im2col_block * out_h * out_w},
-      input.options());
+  auto columns = at::zeros({n_in_channels * weight_w * weight_h, im2col_block * out_h * out_w}, input.options());
+  auto grad_out_buf = at::zeros_like(grad_out);
+  grad_out_buf.copy_(grad_out);
 
-  grad_out = grad_out.view({n_batches / im2col_block, im2col_block,
-                                n_out_channels, out_h, out_w});
+  grad_out = grad_out.view({n_batches / im2col_block, im2col_block, n_out_channels, out_h, out_w});
   grad_out.transpose_(1, 2);
 
-  at::Tensor grad_out_buf = at::zeros_like(grad_out);
-  grad_out_buf =
-      grad_out_buf.view({n_batches / im2col_block, n_out_channels, im2col_block,
-                             out_h, out_w});
-  grad_out_buf.copy_(grad_out);
-  grad_out_buf =
-      grad_out_buf.view({n_batches / im2col_block, n_out_channels,
-                             im2col_block * out_h, out_w});
+  grad_out_buf = grad_out_buf.view({n_batches / im2col_block, n_out_channels, im2col_block, out_h, out_w});
+  grad_out_buf = grad_out_buf.view({n_batches / im2col_block, n_out_channels, im2col_block * out_h, out_w});
 
   grad_out.transpose_(1, 2);
   grad_out =
