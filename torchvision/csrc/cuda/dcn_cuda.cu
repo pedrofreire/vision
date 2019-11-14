@@ -415,15 +415,15 @@ void deformable_col2im(
 
   AT_DISPATCH_FLOATING_TYPES_AND_HALF(
       data_col.scalar_type(), "deformable_col2im_gpu", ([&] {
-        const scalar_t *data_col_ = data_col.data_ptr<scalar_t>();
-        const scalar_t *data_offset_ = data_offset.data_ptr<scalar_t>();
-        scalar_t *grad_im_ = grad_im.data_ptr<scalar_t>();
-
         deformable_col2im_gpu_kernel<<<GET_BLOCKS(num_kernels), CUDA_NUM_THREADS>>>(
-            num_kernels, data_col_, data_offset_, channels, height, width, ksize_h,
+            num_kernels,
+            data_col.data_ptr<scalar_t>(),
+            data_offset.data_ptr<scalar_t>(),
+            channels, height, width, ksize_h,
             ksize_w, pad_h, pad_w, stride_h, stride_w,
             dilation_h, dilation_w, channel_per_deformable_group,
-            parallel_imgs, deformable_group, height_col, width_col, grad_im_);
+            parallel_imgs, deformable_group, height_col, width_col,
+            grad_im.data_ptr<scalar_t>());
       }));
 
   cudaError_t err = cudaGetLastError();
@@ -513,20 +513,18 @@ void deformable_col2im_coord(
 
   AT_DISPATCH_FLOATING_TYPES_AND_HALF(
       data_col.scalar_type(), "deformable_col2im_coord_gpu", ([&] {
-        const scalar_t *data_col_ = data_col.data_ptr<scalar_t>();
-        const scalar_t *data_im_ = data_im.data_ptr<scalar_t>();
-        const scalar_t *data_offset_ = data_offset.data_ptr<scalar_t>();
-        scalar_t *grad_offset_ = grad_offset.data_ptr<scalar_t>();
-
         deformable_col2im_coord_gpu_kernel<<<GET_BLOCKS(num_kernels), CUDA_NUM_THREADS>>>(
-            num_kernels, data_col_, data_im_, data_offset_, channels, height, width,
-            ksize_h, ksize_w, pad_h, pad_w, stride_h, stride_w,
+            num_kernels,
+            data_col.data_ptr<scalar_t>(),
+            data_offset.data_ptr<scalar_t>(),
+            channels, height, width, ksize_h,
+            ksize_w, pad_h, pad_w, stride_h, stride_w,
             dilation_h, dilation_w, channel_per_deformable_group,
             parallel_imgs, 2 * ksize_h * ksize_w * deformable_group, deformable_group,
-            height_col, width_col, grad_offset_);
+            height_col, width_col,
+            grad_im.data_ptr<scalar_t>());
       }));
 }
-
 
 
 std::tuple<at::Tensor, at::Tensor> deform_conv_backward_input_cuda(
@@ -651,7 +649,8 @@ at::Tensor deform_conv_backward_parameters_cuda(
                                 n_out_channels, out_h, out_w});
   grad_out.transpose_(1, 2);
 
-  at::Tensor grad_out_buf = grad_out.copy();
+  at::Tensor grad_out_buf = at::zeros_like(grad_out);
+  grad_out_buf.copy_(grad_out);
   grad_out_buf = grad_out_buf.view({grad_out_buf.size(0), group, grad_out_buf.size(1) / group, grad_out_buf.size(2), grad_out_buf.size(3)});
 
   grad_out.transpose_(1, 2);
