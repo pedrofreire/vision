@@ -42,7 +42,7 @@ scalar_t bilinear_interpolate(const scalar_t *in, const int height, const int wi
 }
 
 template <typename scalar_t>
-void deformable_im2col_gpu_kernel(const int n, const scalar_t* input_ptr, const scalar_t* offset_ptr,
+void deformable_im2col_kernel(const int n, const scalar_t* input_ptr, const scalar_t* offset_ptr,
                                              const int height, const int width, const int weight_h, const int weight_w,
                                              const int pad_h, const int pad_w, const int stride_h, const int stride_w,
                                              const int dil_h, const int dil_w,
@@ -95,8 +95,8 @@ void deformable_im2col(
   int num_kernels = n_in_channels * out_h * out_w * parallel_imgs;
 
   AT_DISPATCH_FLOATING_TYPES_AND_HALF(
-      input.scalar_type(), "deformable_im2col_gpu", ([&] {
-        deformable_im2col_gpu_kernel(
+      input.scalar_type(), "deformable_im2col", ([&] {
+        deformable_im2col_kernel(
             num_kernels,
             input.data_ptr<scalar_t>(),
             data_offset.data_ptr<scalar_t>(),
@@ -272,7 +272,7 @@ scalar_t get_coordinate_weight(const scalar_t *im_data, const int height, const 
 
 
 template <typename scalar_t>
-void deformable_col2im_gpu_kernel(
+void deformable_col2im_kernel(
     const int n, const scalar_t *col, const scalar_t *offset_ptr,
     const int channels, const int height, const int width,
     const int kernel_h, const int kernel_w,
@@ -334,8 +334,8 @@ void compute_grad_input(
   int num_kernels = channels * weight_h * weight_w * out_h * out_w * parallel_imgs;
 
   AT_DISPATCH_FLOATING_TYPES_AND_HALF(
-      columns.scalar_type(), "deformable_col2im_gpu", ([&] {
-        deformable_col2im_gpu_kernel<<<GET_BLOCKS(num_kernels), CUDA_NUM_THREADS>>>(
+      columns.scalar_type(), "deformable_col2im", ([&] {
+        deformable_col2im_kernel(
             num_kernels,
             columns.data_ptr<scalar_t>(),
             offset.data_ptr<scalar_t>(),
@@ -347,7 +347,7 @@ void compute_grad_input(
 }
 
 template <typename scalar_t>
-void deformable_col2im_coord_gpu_kernel(const int n, const scalar_t *col_ptr,
+void deformable_col2im_coord_kernel(const int n, const scalar_t *col_ptr,
                                                    const scalar_t *im_ptr, const scalar_t *offset_ptr,
                                                    const int channels, const int height, const int width,
                                                    const int weight_h, const int weight_w,
@@ -413,8 +413,8 @@ void compute_grad_offset(
   int num_kernels = out_h * out_w * 2 * weight_h * weight_w * n_offset_grps * parallel_imgs;
 
   AT_DISPATCH_FLOATING_TYPES_AND_HALF(
-      columns.scalar_type(), "deformable_col2im_coord_gpu", ([&] {
-        deformable_col2im_coord_gpu_kernel(
+      columns.scalar_type(), "deformable_col2im_coord", ([&] {
+        deformable_col2im_coord_kernel(
             num_kernels,
             columns.data_ptr<scalar_t>(),
             input.data_ptr<scalar_t>(),
