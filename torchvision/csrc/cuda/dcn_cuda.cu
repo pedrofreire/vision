@@ -182,13 +182,6 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
       "Calculated output size too small - out_h: ", out_h, " out_w: ", out_w);
 
   if (gradOutput != NULL) {
-    TORCH_CHECK(gradOutput->size(1) == weight.size(0),
-             "invalid number of gradOutput planes, expected: %d, but got: %d",
-             weight.size(0), gradOutput->size(1));
-
-    TORCH_CHECK((gradOutput->size(2) == out_h && gradOutput->size(3) == out_w),
-           "offset output dims: (", gradOutput->size(2), ", ", gradOutput->size(3),
-           ") - output dims: (", out_h, ", ", out_w, ")");
   }
 }
 
@@ -538,217 +531,206 @@ void deformable_col2im_coord(
 
 std::tuple<at::Tensor, at::Tensor> deform_conv_backward_input_cuda(
     at::Tensor input, at::Tensor offset, at::Tensor weight,
-    at::Tensor gradOutput,
+    at::Tensor grad_out,
     std::pair<int, int> stride,
     std::pair<int, int> pad,
     std::pair<int, int> dilation,
-    int group, int deformable_group, int im2col_step) {
+    int group, int deformable_group, int im2col_block) {
 
-  int kH = weight.size(2);
-  int kW = weight.size(3);
+  int weight_h = weight.size(2);
+  int weight_w = weight.size(3);
 
-  int dH = stride.first;
-  int dW = stride.second;
+  int stride_h = stride.first;
+  int stride_w = stride.second;
 
-  int padH = pad.first;
-  int padW = pad.second;
+  int pad_h = pad.first;
+  int pad_w = pad.second;
 
-  int dilationH = dilation.first;
-  int dilationW = dilation.second;
+  int dil_h = dilation.first;
+  int dil_w = dilation.second;
 
-  input = input.contiguous();
-  offset = offset.contiguous();
-  weight = weight.contiguous();
-  gradOutput = gradOutput.contiguous();
+  long n_batches = input.size(0);
+  long n_in_channels = input.size(1);
+  long in_h = input.size(2);
+  long in_w = input.size(3);
 
-  shape_check(input, offset, &gradOutput, weight, stride, pad, dilation, group, deformable_group);
+  long n_out_channels = weight.size(0);
+
+  long out_w = (in_w + 2 * pad_w - (dil_w * (weight_w - 1) + 1)) / stride_w + 1;
+  long out_h = (in_h + 2 * pad_h - (dil_h * (weight_h - 1) + 1)) / stride_h + 1;
+
+  TORCH_CHECK(grad_out->size(1) == weight.size(0),
+      "output filters in grad: ", grad_out->size(1),
+      "output filters in weight: ", weight.size(0),
+      );
+  TORCH_CHECK((grad_out->size(2) == out_h && grad_out->size(3) == out_w),
+         "grad_out dims: (", grad_out->size(2), ", ", grad_out->size(3), ") - ",
+         "output dims: (", out_h, ", ", out_w, ")");
+
   at::DeviceGuard guard(input.device());
 
-  long batchSize = input.size(0);
-  long nInputPlane = input.size(1);
-  long inputHeight = input.size(2);
-  long inputWidth = input.size(3);
+  auto grad_input = at::zeros_like(input);
+  auto grad_offset = at::zeros_like(offset);
+  auto columns = at::zeros({n_in_channels * weight_w * weight_h, im2col_block * out_h * out_w}, input.options());
 
-  long nOutputPlane = weight.size(0);
+  // Separate into blocks
+  grad_out = grad_out.view({n_batches / im2col_block, im2col_block, n_out_channels, out_h, out_w});
+  grad_out.transpose_(1, 2);
 
-  long outputWidth =
-      (inputWidth + 2 * padW - (dilationW * (kW - 1) + 1)) / dW + 1;
-  long outputHeight =
-      (inputHeight + 2 * padH - (dilationH * (kH - 1) + 1)) / dH + 1;
+  grad_input = grad_input.view({n_batches / im2col_block, im2col_block, n_in_channels, in_h, in_w});
+  input = input.view({n_batches / im2col_block, im2col_block, n_in_channels, in_h, in_w});
+  grad_offset = grad_offset.view({n_batches / im2col_block, im2col_block, deformable_group * 2 * weight_h * weight_w, out_h, out_w});
+  offset = offset.view({n_batches / im2col_block, im2col_block, deformable_group * 2 * weight_h * weight_w, out_h, out_w});
 
-  auto gradInput = at::zeros_like(input);
-  auto gradOffset = at::zeros_like(offset);
-  auto columns = at::zeros(
-      {nInputPlane * kW * kH, im2col_step * outputHeight * outputWidth},
-      input.options());
 
-  // change order of grad output
-  gradOutput = gradOutput.view({batchSize / im2col_step, im2col_step,
-                                nOutputPlane, outputHeight, outputWidth});
-  gradOutput.transpose_(1, 2);
+  grad_out = grad_out.view(
+      {grad_out.size(0), group, grad_out.size(1) / group,
+       grad_out.size(2), grad_out.size(3), grad_out.size(4)});
 
-  gradInput = gradInput.view({batchSize / im2col_step, im2col_step, nInputPlane,
-                              inputHeight, inputWidth});
-  input = input.view({batchSize / im2col_step, im2col_step, nInputPlane,
-                      inputHeight, inputWidth});
-  gradOffset = gradOffset.view({batchSize / im2col_step, im2col_step,
-                                deformable_group * 2 * kH * kW, outputHeight,
-                                outputWidth});
-  offset =
-      offset.view({batchSize / im2col_step, im2col_step,
-                   deformable_group * 2 * kH * kW, outputHeight, outputWidth});
-
-  for (int elt = 0; elt < batchSize / im2col_step; elt++) {
+  for (int elt = 0; elt < n_batches / im2col_block; elt++) {
     // divide into groups
     columns = columns.view({group, columns.size(0) / group, columns.size(1)});
     weight = weight.view({group, weight.size(0) / group, weight.size(1),
                           weight.size(2), weight.size(3)});
-    gradOutput = gradOutput.view(
-        {gradOutput.size(0), group, gradOutput.size(1) / group,
-         gradOutput.size(2), gradOutput.size(3), gradOutput.size(4)});
 
     for (int g = 0; g < group; g++) {
       columns[g] = columns[g].addmm_(weight[g].flatten(1).transpose(0, 1),
-                                     gradOutput[elt][g].flatten(1), 0.0f, 1.0f);
+                                     grad_out[elt][g].flatten(1), 0.0f, 1.0f);
     }
 
-    columns =
-        columns.view({columns.size(0) * columns.size(1), columns.size(2)});
-    gradOutput = gradOutput.view(
-        {gradOutput.size(0), gradOutput.size(1) * gradOutput.size(2),
-         gradOutput.size(3), gradOutput.size(4), gradOutput.size(5)});
+    columns = columns.view({columns.size(0) * columns.size(1), columns.size(2)});
 
-    deformable_col2im_coord(columns, input[elt], offset[elt], nInputPlane,
-                            inputHeight, inputWidth, kH, kW, padH, padW, dH, dW,
-                            dilationH, dilationW, im2col_step, deformable_group,
-                            gradOffset[elt]);
+    deformable_col2im_coord(columns, input[elt], offset[elt], n_in_channels,
+                            in_h, in_w, weight_h, weight_w, pad_h, pad_w, stride_h, stride_w,
+                            dil_h, dil_w, im2col_block, deformable_group,
+                            grad_offset[elt]);
 
-    deformable_col2im(columns, offset[elt], nInputPlane, inputHeight,
-                      inputWidth, kH, kW, padH, padW, dH, dW, dilationH,
-                      dilationW, im2col_step, deformable_group, gradInput[elt]);
+    deformable_col2im(columns, offset[elt], n_in_channels, in_h,
+                      in_w, weight_h, weight_w, pad_h, pad_w, stride_h, stride_w, dil_h,
+                      dil_w, im2col_block, deformable_group, grad_input[elt]);
   }
 
-  gradOutput.transpose_(1, 2);
-  gradOutput =
-      gradOutput.view({batchSize, nOutputPlane, outputHeight, outputWidth});
+  grad_out = grad_out.view(
+      {grad_out.size(0), grad_out.size(1) * grad_out.size(2),
+       grad_out.size(3), grad_out.size(4), grad_out.size(5)});
+  grad_out.transpose_(1, 2);
+  grad_out = grad_out.view({n_batches, n_out_channels, out_h, out_w});
 
-  gradInput = gradInput.view({batchSize, nInputPlane, inputHeight, inputWidth});
-  input = input.view({batchSize, nInputPlane, inputHeight, inputWidth});
-  gradOffset = gradOffset.view(
-      {batchSize, deformable_group * 2 * kH * kW, outputHeight, outputWidth});
-  offset = offset.view(
-      {batchSize, deformable_group * 2 * kH * kW, outputHeight, outputWidth});
+  grad_input = grad_input.view({n_batches, n_in_channels, in_h, in_w});
+  input = input.view({n_batches, n_in_channels, in_h, in_w});
+  grad_offset = grad_offset.view({n_batches, deformable_group * 2 * weight_h * weight_w, out_h, out_w});
+  offset = offset.view({n_batches, deformable_group * 2 * weight_h * weight_w, out_h, out_w});
 
-  return {gradInput, gradOffset};
+  return {grad_input, grad_offset};
 }
 
 
 
 at::Tensor deform_conv_backward_parameters_cuda(
     at::Tensor input, at::Tensor offset, at::Tensor weight,
-    at::Tensor gradOutput,
+    at::Tensor grad_out,
     std::pair<int, int> stride,
     std::pair<int, int> pad,
     std::pair<int, int> dilation,
-    int group, int deformable_group, int im2col_step) {
-  int kH = weight.size(2);
-  int kW = weight.size(3);
+    int group, int deformable_group, int im2col_block) {
+  int weight_h = weight.size(2);
+  int weight_w = weight.size(3);
 
-  int dH = stride.first;
-  int dW = stride.second;
+  int stride_h = stride.first;
+  int stride_w = stride.second;
 
-  int padH = pad.first;
-  int padW = pad.second;
+  int pad_h = pad.first;
+  int pad_w = pad.second;
 
-  int dilationH = dilation.first;
-  int dilationW = dilation.second;
+  int dil_h = dilation.first;
+  int dil_w = dilation.second;
 
   input = input.contiguous();
   offset = offset.contiguous();
   weight = weight.contiguous();
-  gradOutput = gradOutput.contiguous();
+  grad_out = grad_out.contiguous();
 
-  shape_check(input, offset, &gradOutput, weight, stride, pad, dilation, group, deformable_group);
+  shape_check(input, offset, &grad_out, weight, stride, pad, dilation, group, deformable_group);
   at::DeviceGuard guard(input.device());
 
-  long batchSize = input.size(0);
-  long nInputPlane = input.size(1);
-  long inputHeight = input.size(2);
-  long inputWidth = input.size(3);
+  long n_batches = input.size(0);
+  long n_in_channels = input.size(1);
+  long in_h = input.size(2);
+  long in_w = input.size(3);
 
-  long nOutputPlane = weight.size(0);
+  long n_out_channels = weight.size(0);
 
-  long outputWidth =
-      (inputWidth + 2 * padW - (dilationW * (kW - 1) + 1)) / dW + 1;
-  long outputHeight =
-      (inputHeight + 2 * padH - (dilationH * (kH - 1) + 1)) / dH + 1;
+  long out_w =
+      (in_w + 2 * pad_w - (dil_w * (weight_w - 1) + 1)) / stride_w + 1;
+  long out_h =
+      (in_h + 2 * pad_h - (dil_h * (weight_h - 1) + 1)) / stride_h + 1;
 
 
-  auto gradWeight = at::zeros_like(weight);;
+  auto grad_weight = at::zeros_like(weight);;
   auto columns = at::zeros(
-      {nInputPlane * kW * kH, im2col_step * outputHeight * outputWidth},
+      {n_in_channels * weight_w * weight_h, im2col_block * out_h * out_w},
       input.options());
 
-  gradOutput = gradOutput.view({batchSize / im2col_step, im2col_step,
-                                nOutputPlane, outputHeight, outputWidth});
-  gradOutput.transpose_(1, 2);
+  grad_out = grad_out.view({n_batches / im2col_block, im2col_block,
+                                n_out_channels, out_h, out_w});
+  grad_out.transpose_(1, 2);
 
-  at::Tensor gradOutputBuffer = at::zeros_like(gradOutput);
-  gradOutputBuffer =
-      gradOutputBuffer.view({batchSize / im2col_step, nOutputPlane, im2col_step,
-                             outputHeight, outputWidth});
-  gradOutputBuffer.copy_(gradOutput);
-  gradOutputBuffer =
-      gradOutputBuffer.view({batchSize / im2col_step, nOutputPlane,
-                             im2col_step * outputHeight, outputWidth});
+  at::Tensor grad_out_buf = at::zeros_like(grad_out);
+  grad_out_buf =
+      grad_out_buf.view({n_batches / im2col_block, n_out_channels, im2col_block,
+                             out_h, out_w});
+  grad_out_buf.copy_(grad_out);
+  grad_out_buf =
+      grad_out_buf.view({n_batches / im2col_block, n_out_channels,
+                             im2col_block * out_h, out_w});
 
-  gradOutput.transpose_(1, 2);
-  gradOutput =
-      gradOutput.view({batchSize, nOutputPlane, outputHeight, outputWidth});
+  grad_out.transpose_(1, 2);
+  grad_out =
+      grad_out.view({n_batches, n_out_channels, out_h, out_w});
 
-  input = input.view({batchSize / im2col_step, im2col_step, nInputPlane,
-                      inputHeight, inputWidth});
+  input = input.view({n_batches / im2col_block, im2col_block, n_in_channels,
+                      in_h, in_w});
   offset =
-      offset.view({batchSize / im2col_step, im2col_step,
-                   deformable_group * 2 * kH * kW, outputHeight, outputWidth});
+      offset.view({n_batches / im2col_block, im2col_block,
+                   deformable_group * 2 * weight_h * weight_w, out_h, out_w});
 
-  for (int elt = 0; elt < batchSize / im2col_step; elt++) {
-    deformable_im2col(input[elt], offset[elt], nInputPlane, inputHeight,
-                      inputWidth, kH, kW, padH, padW, dH, dW, dilationH,
-                      dilationW, im2col_step, gradOutput.size(2), gradOutput.size(3), deformable_group, columns);
+  for (int elt = 0; elt < n_batches / im2col_block; elt++) {
+    deformable_im2col(input[elt], offset[elt], n_in_channels, in_h,
+                      in_w, weight_h, weight_w, pad_h, pad_w, stride_h, stride_w, dil_h,
+                      dil_w, im2col_block, grad_out.size(2), grad_out.size(3), deformable_group, columns);
 
     // divide into group
-    gradOutputBuffer = gradOutputBuffer.view(
-        {gradOutputBuffer.size(0), group, gradOutputBuffer.size(1) / group,
-         gradOutputBuffer.size(2), gradOutputBuffer.size(3)});
+    grad_out_buf = grad_out_buf.view(
+        {grad_out_buf.size(0), group, grad_out_buf.size(1) / group,
+         grad_out_buf.size(2), grad_out_buf.size(3)});
     columns = columns.view({group, columns.size(0) / group, columns.size(1)});
-    gradWeight =
-        gradWeight.view({group, gradWeight.size(0) / group, gradWeight.size(1),
-                         gradWeight.size(2), gradWeight.size(3)});
+    grad_weight =
+        grad_weight.view({group, grad_weight.size(0) / group, grad_weight.size(1),
+                         grad_weight.size(2), grad_weight.size(3)});
 
     for (int g = 0; g < group; g++) {
-      gradWeight[g] = gradWeight[g]
+      grad_weight[g] = grad_weight[g]
                           .flatten(1)
-                          .addmm_(gradOutputBuffer[elt][g].flatten(1),
+                          .addmm_(grad_out_buf[elt][g].flatten(1),
                                   columns[g].transpose(1, 0), 1.0, 1)
-                          .view_as(gradWeight[g]);
+                          .view_as(grad_weight[g]);
     }
-    gradOutputBuffer = gradOutputBuffer.view(
-        {gradOutputBuffer.size(0),
-         gradOutputBuffer.size(1) * gradOutputBuffer.size(2),
-         gradOutputBuffer.size(3), gradOutputBuffer.size(4)});
+    grad_out_buf = grad_out_buf.view(
+        {grad_out_buf.size(0),
+         grad_out_buf.size(1) * grad_out_buf.size(2),
+         grad_out_buf.size(3), grad_out_buf.size(4)});
     columns =
         columns.view({columns.size(0) * columns.size(1), columns.size(2)});
-    gradWeight = gradWeight.view({gradWeight.size(0) * gradWeight.size(1),
-                                  gradWeight.size(2), gradWeight.size(3),
-                                  gradWeight.size(4)});
+    grad_weight = grad_weight.view({grad_weight.size(0) * grad_weight.size(1),
+                                  grad_weight.size(2), grad_weight.size(3),
+                                  grad_weight.size(4)});
   }
 
-  input = input.view({batchSize, nInputPlane, inputHeight, inputWidth});
+  input = input.view({n_batches, n_in_channels, in_h, in_w});
   offset = offset.view(
-      {batchSize, deformable_group * 2 * kH * kW, outputHeight, outputWidth});
+      {n_batches, deformable_group * 2 * weight_h * weight_w, out_h, out_w});
 
-  return gradWeight;
+  return grad_weight;
 }
 
 
