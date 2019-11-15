@@ -367,5 +367,89 @@ class NMSTester(unittest.TestCase):
             self.assertTrue(torch.allclose(r_cpu, r_cuda.cpu()), err_msg.format(iou))
 
 
+class DCNTester(unittest.TestCase):
+    def expected_fn(self, x, offsets, weights, stride=1, pad=0, dilation=1):
+        stride_h, stride_w = _pair(stride)
+        pad_h, pad_w = _pair(pad)
+        dil_h, dil_w = _pair(dilation)
+        weights_h, weights_w = weights.shape[-2:]
+
+        n_batches, n_in_channels, in_h, in_w = x.shape
+        n_out_channels = weights.shape[0]
+
+        kernel_h = (weights_h - 1) * dil_h + 1
+        kernel_w = (weights_w - 1) * dil_w + 1
+        out_h = (in_h + 2*pad_h - kernel_h) // stride_h + 1
+        out_w = (in_w + 2*pad_w - kernel_w) // stride_w + 1
+
+        n_offset_grps = offsets.shape[1] // (2 * weights_h * weights_w)
+        c_per_offset_grp = n_in_channels // n_offset_grps
+
+        n_weight_grps = n_in_channels // weights.shape[1]
+        c_per_weight_grp = weights.shape[1]
+
+        out = torch.zeros(n_batches, n_out_channels, out_h, out_w)
+        for b in range(n_batches):
+            for c_out in range(n_out_channels):
+                for i in range(out_h):
+                    for j in range(out_w):
+                        for di in range(weights_h):
+                            for dj in range(weights_w):
+                                for c in range(c_per_weight_grp):
+                                    weight_grp = c_out // c_per_weight_grp
+                                    c_in = weight_grp * c_per_weight_grp + c
+                                    offset_grp = c_in // c_per_offset_grp
+                                    offset_idx = 2 * (offset_grp * (weights_h * weights_w) + di * weights_w + dj)
+                                    pi = stride_h * i - pad_h + dil_h * di + offsets[b, offset_idx, i, j]
+                                    pj = stride_w * j - pad_w + dil_w * dj + offsets[b, offset_idx + 1, i, j]
+                                    val = bilinear_interpolate_2(x[b, c_in, :, :], pi, pj)
+                                    out[b, c_out, i, j] += weights[c_out, c, di, dj] * val
+        return out
+
+
+    def test_forward_cpu(self):
+        x = 10 * torch.ones(1, 1, 5, 5, device=torch.device('cpu'), dtype=torch.float64)
+        offset = torch.zeros(1, 8, 4, 4, device=torch.device('cpu'), dtype=torch.float64)
+        weight = torch.ones(1, 1, 2, 2, device=torch.device('cpu'), dtype=torch.float64)
+
+        res = ops.dcn(x, offset, weight)
+        expected = self.expected_fn(x, offset, weight).to(device=torch.device('cpu'), dtype=torch.float64)
+
+        self.assertTrue(torch.allclose(res, expected), '\n{}\n\n{}'.format(res, expected))
+
+    def test_backward_cpu(self):
+        x = 10 * torch.ones(1, 1, 5, 5, requires_grad=True, device=torch.device('cpu'), dtype=torch.float64)
+        offset = torch.zeros(1, 8, 4, 4, device=torch.device('cpu'), dtype=torch.float64)
+        weight = torch.ones(1, 1, 2, 2, device=torch.device('cpu'), dtype=torch.float64)
+
+        def fn(z):
+            return ops.dcn(z, offset, weight)
+
+        gradcheck(fn, (x,))
+
+    @unittest.skipIf(not torch.cuda.is_available(), "CUDA unavailable")
+    def test_forward_cuda(self):
+        n_weight_grps = 2
+        n_offset_grps = 2
+        x = 10 * torch.rand(1, 2, 5, 5, device=torch.device('cuda'), dtype=torch.float64)
+        offset = torch.randn(1, n_offset_grps * 8, 4, 4, device=torch.device('cuda'), dtype=torch.float64)
+        weight = torch.randn(2, 1, 2, 2, device=torch.device('cuda'), dtype=torch.float64)
+
+        res = ops.dcn(x, offset, weight)
+        expected = self.expected_fn(x, offset, weight).to(device=torch.device('cuda'), dtype=torch.float64)
+
+        self.assertTrue(torch.allclose(res, expected), '\nx:\n{}\nres:\n{}\nexp:\n{}'.format(x, res, expected))
+
+    @unittest.skipIf(not torch.cuda.is_available(), "CUDA unavailable")
+    def test_backward_cuda(self):
+        x = 10 * torch.ones(1, 1, 5, 5, requires_grad=True, device=torch.device('cuda'), dtype=torch.float64)
+        offset = torch.zeros(1, 8, 4, 4, device=torch.device('cuda'), dtype=torch.float64)
+        weight = torch.ones(1, 1, 2, 2, device=torch.device('cuda'), dtype=torch.float64)
+
+        def fn(z):
+            return ops.dcn(z, offset, weight)
+
+        gradcheck(fn, (x,))
+
 if __name__ == '__main__':
     unittest.main()

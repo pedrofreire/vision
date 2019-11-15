@@ -57,7 +57,7 @@ using torch::autograd::AutogradContext;
 using torch::autograd::Variable;
 using torch::autograd::variable_list;
 
-class DCNFunction : public torch::autograd::Function<DCNFunction> {
+class DeformConvFunction : public torch::autograd::Function<DeformConvFunction> {
  public:
   static variable_list forward(
       AutogradContext* ctx,
@@ -125,7 +125,7 @@ class DCNFunction : public torch::autograd::Function<DCNFunction> {
   }
 };
 
-Tensor dcn(
+Tensor deform_conv(
     const Tensor& input,
     const Tensor& offset,
     const Tensor& weights,
@@ -135,7 +135,7 @@ Tensor dcn(
     int64_t groups,
     int64_t deformable_groups,
     int64_t im2col_step) {
-  auto result = DCNFunction::apply(input, offset, weights, stride_h, stride_w, pad_h, pad_w,
+  auto result = DeformConvFunction::apply(input, offset, weights, stride_h, stride_w, pad_h, pad_w,
                           dilation_h, dilation_w, groups, deformable_groups, im2col_step);
   return result[0];
 }

@@ -44,7 +44,7 @@ def deform_conv(input, offset, weight,
     n_offset_grps = offset.shape[1] // (2 * weights_h * weights_w)
     n_weight_grps = n_in_channels // weight.shape[1]
 
-    output = torch.ops.torchvision.dcn(
+    output = torch.ops.torchvision.deform_conv(
                 input,
                 offset,
                 weight,
@@ -59,15 +59,15 @@ def deform_conv(input, offset, weight,
 
 class DeformConv(nn.Module):
     """
-    See dcn
+    See deform_conv
     """
     def __init__(self, output_size, spatial_scale):
-        super(DCN, self).__init__()
+        super(DeformConv, self).__init__()
         self.output_size = output_size
         self.spatial_scale = spatial_scale
 
     def forward(self, input):
-        return dcn(input)
+        return deform_conv(input)
 
     def __repr__(self):
         tmpstr = self.__class__.__name__ + '('
