@@ -175,29 +175,34 @@ class PSRoIPoolTester(RoIOpTester, unittest.TestCase):
         return y
 
 
-def bilinear_interpolate(data, height, width, y, x):
-    if y < -1.0 or y > height or x < -1.0 or x > width:
-        return 0.
+def bilinear_interpolate(data, y, x, snap_border=False):
+    height, width = data.shape
 
-    y = min(max(0, y), height - 1)
-    x = min(max(0, x), width - 1)
+    if snap_border:
+        if -1 < x <= 0:
+            x = 0
+        if -1 < y <= 0:
+            y = 0
+        if height - 1 <= y < height:
+            y = height - 1
+        if width - 1 <= x < width:
+            x = width - 1
 
-    y_low = int(y)
-    y_high = min(y_low + 1, height - 1)
-
-    x_low = int(x)
-    x_high = min(x_low + 1, width - 1)
+    y_low = int(math.floor(y))
+    x_low = int(math.floor(x))
+    y_high = y_low + 1
+    x_high = x_low + 1
 
     wy_h = y - y_low
-    wy_l = 1 - wy_h
-
     wx_h = x - x_low
+    wy_l = 1 - wy_h
     wx_l = 1 - wx_h
 
     val = 0
-    for wx, x in zip((wx_l, wx_h), (x_low, x_high)):
-        for wy, y in zip((wy_l, wy_h), (y_low, y_high)):
-            val += wx * wy * data[y * width + x]
+    for wx, xp in zip((wx_l, wx_h), (x_low, x_high)):
+        for wy, yp in zip((wy_l, wy_h), (y_low, y_high)):
+            if 0 <= yp < height and 0 <= xp < width:
+                val += wx * wy * data[yp, xp]
     return val
 
 
@@ -243,12 +248,7 @@ class RoIAlignTester(RoIOpTester, unittest.TestCase):
                             y = start_h + (iy + 0.5) * bin_h / grid_h
                             for ix in range(0, grid_w):
                                 x = start_w + (ix + 0.5) * bin_w / grid_w
-                                val += bilinear_interpolate(
-                                    in_data[batch_idx, channel, :, :].flatten(),
-                                    in_data.size(-2),
-                                    in_data.size(-1),
-                                    y, x
-                                )
+                                val += bilinear_interpolate(in_data[batch_idx, channel, :, :], y, x, snap_border=True)
                         val /= grid_h * grid_w
 
                         out_data[r, channel, i, j] = val
@@ -299,12 +299,7 @@ class PSRoIAlignTester(RoIOpTester, unittest.TestCase):
                             y = start_h + (iy + 0.5) * bin_h / grid_h
                             for ix in range(0, grid_w):
                                 x = start_w + (ix + 0.5) * bin_w / grid_w
-                                val += bilinear_interpolate(
-                                    in_data[batch_idx, c_in, :, :].flatten(),
-                                    in_data.size(-2),
-                                    in_data.size(-1),
-                                    y, x
-                                )
+                                val += bilinear_interpolate(in_data[batch_idx, c_in, :, :], y, x, snap_border=True)
                         val /= grid_h * grid_w
 
                         out_data[r, c_out, i, j] = val
@@ -403,7 +398,7 @@ class DCNTester(unittest.TestCase):
                                     offset_idx = 2 * (offset_grp * (weights_h * weights_w) + di * weights_w + dj)
                                     pi = stride_h * i - pad_h + dil_h * di + offsets[b, offset_idx, i, j]
                                     pj = stride_w * j - pad_w + dil_w * dj + offsets[b, offset_idx + 1, i, j]
-                                    val = bilinear_interpolate_2(x[b, c_in, :, :], pi, pj)
+                                    val = bilinear_interpolate(x[b, c_in, :, :], pi, pj)
                                     out[b, c_out, i, j] += weights[c_out, c, di, dj] * val
         return out
 
