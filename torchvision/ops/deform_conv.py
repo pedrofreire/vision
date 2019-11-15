@@ -5,25 +5,24 @@ from torch.nn.modules.utils import _pair
 from torch.jit.annotations import List
 
 
-def deform_conv(input, offset, weight, *args, stride=1, pad=0, dilation=1, im2col_step=64):
+def deform_conv(input, offset, weight, *args, stride=1, pad=0, dilation=1, n_parallel_imgs=64):
     # type: (Tensor, Tensor, Tensor) -> Tensor
     """
     Performs Deformable Convolution described in Deformable Convolution Networks
 
     Arguments:
-        input (Tensor[N, C, H, W]): input tensor
-        offset (Tensor[K, 5] or List[Tensor[L, 4]]): the box coordinates in (x1, y1, x2, y2)
-            format where the regions will be taken from. If a single Tensor is passed,
-            then the first column should contain the batch index. If a list of Tensors
-            is passed, then each Tensor will correspond to the boxes for an element i
-            in a batch
-        output_size (int or Tuple[int, int]): the size of the output after the cropping
-            is performed, as (height, width)
-        spatial_scale (float): a scaling factor that maps the input coordinates to
-            the box coordinates. Default: 1.0
+        input (Tensor[batch_sz, in_channels, in_h, in_w]): input tensor
+        offset (Tensor[batch_sz, 2 * n_offset_grps * weight_h * weight_w, out_h, out_w])
+        weight (Tensor[out_channels, in_channels // n_weight_grps, weight_h, weight_w]):
+            convolution weights, with n_weight_grps different connection groups
+        stride (int or Tuple[int, int]): distance between convolution centers
+        pad (int or Tuple[int, int]): height/width of padding of zeroes around each image
+        dilation (int or Tuple[int, int]): point distance in convolution grid
+        n_parallel_imgs (int): Number of images to be processed at once; does not change
+            behavior, only used for performance purposes
 
     Returns:
-        output (Tensor[K, C, output_size[0], output_size[1]])
+        output (Tensor[batch_sz, out_channels, out_h, out_w]): result of convolution
     """
 
     stride = _pair(stride)
@@ -36,13 +35,10 @@ def deform_conv(input, offset, weight, *args, stride=1, pad=0, dilation=1, im2co
     weights_h, weights_w = weight.shape[-2:]
     _, n_in_channels, in_h, in_w = input.shape
 
-    kernel_h = (weights_h - 1) * dil_h + 1
-    kernel_w = (weights_w - 1) * dil_w + 1
-
     n_offset_grps = offset.shape[1] // (2 * weights_h * weights_w)
     n_weight_grps = n_in_channels // weight.shape[1]
 
-    output = torch.ops.torchvision.deform_conv(
+    return torch.ops.torchvision.deform_conv(
                 input,
                 offset,
                 weight,
@@ -52,20 +48,21 @@ def deform_conv(input, offset, weight, *args, stride=1, pad=0, dilation=1, im2co
                 n_weight_grps,
                 n_offset_grps,
                 im2col_step)
-    return output
 
 
 class DeformConv(nn.Module):
     """
     See deform_conv
     """
-    def __init__(self, output_size, spatial_scale):
+    def __init__(self, output_size, *args, stride=1, pad=0, dilation=1, n_parallel_imgs=64):
         super(DeformConv, self).__init__()
-        self.output_size = output_size
-        self.spatial_scale = spatial_scale
+        self.stride = stride
+        self.pad = pad
+        self.dilation = dilation
+        self.n_parallel_imgs = n_parallel_imgs
 
-    def forward(self, input):
-        return deform_conv(input)
+    def forward(self, input, offset, weight):
+        return deform_conv(input, stride=self.stride, pad=self.pad, dilation=self.dilation, n_parallel_imgs=self.n_parallel_imgs)
 
     def __repr__(self):
         tmpstr = self.__class__.__name__ + '('
