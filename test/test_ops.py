@@ -415,6 +415,11 @@ class DeformConvTester(unittest.TestCase):
         offset = torch.randn(1, n_offset_grps * 8, 4, 4, device=device, dtype=self.dtype)
         weight = torch.randn(2, 1, 2, 2, device=device, dtype=self.dtype)
 
+        if not contiguous:
+            x = x.permute(0, 1, 3, 2)
+            offset = offset.permute(1, 3, 0, 2)
+            weight = weight.permute(3, 2, 0, 1)
+
         res = ops.deform_conv(x, offset, weight)
         expected = self.expected_fn(x, offset, weight)
 
@@ -425,6 +430,10 @@ class DeformConvTester(unittest.TestCase):
         offset = torch.zeros(1, 8, 4, 4, device=device, dtype=self.dtype)
         weight = torch.ones(1, 1, 2, 2, device=device, dtype=self.dtype)
 
+        if not contiguous:
+            x = x.permute(0, 1, 3, 2)
+            offset = offset.permute(1, 3, 0, 2)
+            weight = weight.permute(3, 2, 0, 1)
         def fn(z):
             return ops.deform_conv(z, offset, weight)
 
