@@ -124,7 +124,7 @@ at::Tensor DCN_forward_cpu(
   TORCH_CHECK(input.device().is_cpu(), "input must be a CPU tensor");
 
   int batch_sz = input.size(0);
-  int in_channels = input.size(1);
+  int n_in_channels = input.size(1);
   int in_h = input.size(2);
   int in_w = input.size(3);
 
@@ -173,7 +173,7 @@ at::Tensor DCN_forward_cpu(
   auto out = at::zeros({batch_sz, out_channels, out_h, out_w}, input.options());
   // Separate batches into blocks
   out = out.view({batch_sz / im2col_block, im2col_block, out_channels, out_h, out_w});
-  input = input.view({batch_sz / im2col_block, im2col_block, in_channels, in_h, in_w});
+  input = input.view({batch_sz / im2col_block, im2col_block, n_in_channels, in_h, in_w});
   offset = offset.view({batch_sz / im2col_block, im2col_block, n_offset_grps * 2 * weight_h * weight_w, out_h, out_w});
   at::Tensor out_buf = at::zeros({batch_sz / im2col_block, out_channels, im2col_block * out_h, out_w}, out.options());
 
@@ -182,9 +182,9 @@ at::Tensor DCN_forward_cpu(
   weight = weight.view({n_weight_grps, weight.size(0) / n_weight_grps, weight.size(1), weight.size(2), weight.size(3)});
 
   // Sample points and perform convolution
-  auto columns = at::zeros({in_channels * weight_h * weight_w, im2col_block * out_h * out_w}, input.options());
+  auto columns = at::zeros({n_in_channels * weight_h * weight_w, im2col_block * out_h * out_w}, input.options());
   for (int b = 0; b < batch_sz / im2col_block; b++) {
-    deformable_im2col(input[b], offset[b], in_channels, in_h,
+    deformable_im2col(input[b], offset[b], n_in_channels, in_h,
                       in_w, weight_h, weight_w, pad_h, pad_w, stride_h, stride_w, dil_h,
                       dil_w, out_h, out_w, im2col_block, n_offset_grps, columns);
 
@@ -397,7 +397,7 @@ static std::tuple<at::Tensor, at::Tensor> deform_conv_backward_input_cpu(
     int n_weight_grps, int n_offset_grps, int im2col_block) {
 
   int batch_sz = input.size(0);
-  int in_channels = input.size(1);
+  int n_in_channels = input.size(1);
   int in_h = input.size(2);
   int in_w = input.size(3);
 
@@ -479,7 +479,7 @@ static at::Tensor deform_conv_backward_parameters_cpu(
     int n_weight_grps, int n_offset_grps, int im2col_block) {
 
   int batch_sz = input.size(0);
-  int in_channels = input.size(1);
+  int n_in_channels = input.size(1);
   int in_h = input.size(2);
   int in_w = input.size(3);
 

@@ -198,9 +198,6 @@ at::Tensor DCN_forward_cuda(
 
   im2col_block = std::min(batch_sz, im2col_block);
 
-  TORCH_CHECK(batch_sz % im2col_block == 0);
-  shape_check(input, offset, weight, stride, pad, dilation, n_weight_grps, n_offset_grps);
-
   int out_channels = weight.size(0);
   int weight_h = weight.size(2);
   int weight_w = weight.size(3);
@@ -219,8 +216,28 @@ at::Tensor DCN_forward_cuda(
   int out_h = ((in_h + 2*pad_h - ker_h) / stride_h) + 1;
   int out_w = ((in_w + 2*pad_w - ker_w) / stride_w) + 1;
 
-  auto out = at::zeros({batch_sz, out_channels, out_h, out_w}, input.options());
 
+  TORCH_CHECK(batch_sz % im2col_block == 0);
+
+  TORCH_CHECK(weight_h > 0 && weight_w > 0, "weight_h: ", weight_w, " weight_w: ", weight_h);
+  TORCH_CHECK(stride_h > 0 && stride_w > 0, "stride_h: ", stride_w, " stride_w: ", stride_h);
+  TORCH_CHECK(pad_h >= 0 && pad_w >= 0, "pad_h: ", pad_w, " pad_w: ", pad_h);
+  TORCH_CHECK(dil_h > 0 && dil_w > 0, "dil_h: ", dil_w, " dil_w: ", dil_h);
+
+  TORCH_CHECK(weight.size(1) * n_weight_grps == input.size(1));
+  TORCH_CHECK(weight.size(0) % n_weight_grps == 0);
+  TORCH_CHECK(input.size(1) % n_offset_grps == 0);
+
+  TORCH_CHECK((offset.size(0) == input.size(0)), "invalid batch size of offset");
+  TORCH_CHECK((offset.size(1) == n_offset_grps * 2 * weight_h * weight_w),
+      "got: ", offset.size(1), " expected: ", n_offset_grps * 2 * weight_h * weight_w);
+  TORCH_CHECK((offset.size(2) == out_h && offset.size(3) == out_w),
+           "offset output dims: (", offset.size(2), ", ", offset.size(3), ") - ",
+           "computed output dims: (", out_h, ", ", out_w, ")");
+  TORCH_CHECK(out_h > 0 && out_w > 0, "Calculated output size too small - out_h: ", out_h, " out_w: ", out_w);
+
+
+  auto out = at::zeros({batch_sz, out_channels, out_h, out_w}, input.options());
   // Separate batches into blocks
   out = out.view({batch_sz / im2col_block, im2col_block, out_channels, out_h, out_w});
   input = input.view({batch_sz / im2col_block, im2col_block, in_channels, in_h, in_w});
