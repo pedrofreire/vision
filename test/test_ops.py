@@ -5,6 +5,8 @@ import torch
 from torch.autograd import gradcheck
 from torch.nn.modules.utils import _pair
 
+from torch import Tensor, Tuple
+
 from torchvision import ops
 
 from itertools import product
@@ -107,7 +109,7 @@ class RoIPoolTester(RoIOpTester, unittest.TestCase):
     def get_script_fn(self, rois, pool_size):
         @torch.jit.script
         def script_fn(input, rois, pool_size):
-            # type: (torch.Tensor, torch.Tensor, int) -> torch.Tensor
+            # type: (Tensor, Tensor, int) -> Tensor
             return ops.roi_pool(input, rois, pool_size, 1.0)[0]
         return lambda x: script_fn(x, rois, pool_size)
 
@@ -146,7 +148,7 @@ class PSRoIPoolTester(RoIOpTester, unittest.TestCase):
     def get_script_fn(self, rois, pool_size):
         @torch.jit.script
         def script_fn(input, rois, pool_size):
-            # type: (torch.Tensor, torch.Tensor, int) -> torch.Tensor
+            # type: (Tensor, Tensor, int) -> Tensor
             return ops.ps_roi_pool(input, rois, pool_size, 1.0)[0]
         return lambda x: script_fn(x, rois, pool_size)
 
@@ -223,7 +225,7 @@ class RoIAlignTester(RoIOpTester, unittest.TestCase):
     def get_script_fn(self, rois, pool_size):
         @torch.jit.script
         def script_fn(input, rois, pool_size):
-            # type: (torch.Tensor, torch.Tensor, int) -> torch.Tensor
+            # type: (Tensor, Tensor, int) -> Tensor
             return ops.roi_align(input, rois, pool_size, 1.0)[0]
         return lambda x: script_fn(x, rois, pool_size)
 
@@ -272,7 +274,7 @@ class PSRoIAlignTester(RoIOpTester, unittest.TestCase):
     def get_script_fn(self, rois, pool_size):
         @torch.jit.script
         def script_fn(input, rois, pool_size):
-            # type: (torch.Tensor, torch.Tensor, int) -> torch.Tensor
+            # type: (Tensor, Tensor, int) -> Tensor
             return ops.ps_roi_align(input, rois, pool_size, 1.0)[0]
         return lambda x: script_fn(x, rois, pool_size)
 
@@ -390,7 +392,7 @@ class DeformConvTester(OpTester, unittest.TestCase):
 
         n_weight_grps = n_in_channels // weights.shape[1]
         in_c_per_weight_grp = weights.shape[1]
-        out_c_per_weight_grp = weights.shape[0] // n_out_channels
+        out_c_per_weight_grp = n_out_channels // n_weight_grps
 
         out = torch.zeros(n_batches, n_out_channels, out_h, out_w, device=x.device, dtype=x.dtype)
         for b in range(n_batches):
@@ -409,7 +411,8 @@ class DeformConvTester(OpTester, unittest.TestCase):
                                     pi = stride_h * i - pad_h + dil_h * di + offsets[b, offset_idx, i, j]
                                     pj = stride_w * j - pad_w + dil_w * dj + offsets[b, offset_idx + 1, i, j]
 
-                                    out[b, c_out, i, j] += weights[c_out, c, di, dj] * bilinear_interpolate(x[b, c_in, :, :], pi, pj)
+                                    out[b, c_out, i, j] += (weights[c_out, c, di, dj] *
+                                                            bilinear_interpolate(x[b, c_in, :, :], pi, pj))
         return out
 
     def get_fn_args(self, device, contiguous):
@@ -433,8 +436,12 @@ class DeformConvTester(OpTester, unittest.TestCase):
         out_w = (in_w + 2 * pad_w - (dil_w * (weight_w - 1) + 1)) // stride_w + 1
 
         x = torch.rand(batch_sz, n_in_channels, in_h, in_w, device=device, dtype=self.dtype, requires_grad=True)
-        offset = torch.randn(batch_sz, n_offset_grps * 2 * weight_h * weight_w, out_h, out_w, device=device, dtype=self.dtype, requires_grad=True)
-        weight = torch.randn(n_out_channels, n_in_channels // n_weight_grps, weight_h, weight_w, device=device, dtype=self.dtype, requires_grad=True)
+
+        offset = torch.randn(batch_sz, n_offset_grps * 2 * weight_h * weight_w, out_h, out_w,
+                             device=device, dtype=self.dtype, requires_grad=True)
+
+        weight = torch.randn(n_out_channels, n_in_channels // n_weight_grps, weight_h, weight_w,
+                             device=device, dtype=self.dtype, requires_grad=True)
 
         if not contiguous:
             x = x.permute(0, 1, 3, 2).contiguous().permute(0, 1, 3, 2)
@@ -454,17 +461,18 @@ class DeformConvTester(OpTester, unittest.TestCase):
     def _test_backward(self, device, contiguous):
         x, offset, weight, stride, pad, dilation = self.get_fn_args(device, contiguous)
 
-        def func(z, off, wei):
-            return ops.deform_conv(z, off, wei, stride=stride, pad=pad, dilation=dilation)
+        def func(x_, offset_, weight_):
+            return ops.deform_conv(x_, offset_, weight_, stride=stride, pad=pad, dilation=dilation)
 
         gradcheck(func, (x, offset, weight), nondet_tol=1e-5)
 
         @torch.jit.script
-        def script_func(x_arg, offset_arg, weight_arg, stride_arg, pad_arg, dilation_arg):
-            # type: (torch.Tensor, torch.Tensor, torch.Tensor, Tuple[int, int], Tuple[int, int], Tuple[int, int]) -> torch.Tensor
-            return ops.deform_conv(x_arg, offset_arg, weight_arg, stride=stride_arg, pad=pad_arg, dilation=dilation_arg)[0]
+        def script_func(x_, offset_, weight_, stride_, pad_, dilation_):
+            # type: (Tensor, Tensor, Tensor, Tuple[int, int], Tuple[int, int], Tuple[int, int]) -> Tensor
+            return ops.deform_conv(x_, offset_, weight_, stride=stride_, pad=pad_, dilation=dilation_)[0]
 
-        gradcheck(lambda z, off, wei: script_func(z, off, wei, stride, pad, dilation), (x, offset, weight), nondet_tol=1e-5)
+        gradcheck(lambda z, off, wei: script_func(z, off, wei, stride, pad, dilation),
+                  (x, offset, weight), nondet_tol=1e-5)
 
 
 if __name__ == '__main__':

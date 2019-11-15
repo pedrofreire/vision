@@ -173,13 +173,17 @@ static void deformable_im2col(
 }
 
 at::Tensor DCN_forward_cpu(
-    const at::Tensor& input,
-    const at::Tensor& offset,
-    const at::Tensor& weight,
+    const at::Tensor& input_param,
+    const at::Tensor& offset_param,
+    const at::Tensor& weight_param,
     std::pair<int, int> stride,
     std::pair<int, int> pad,
     std::pair<int, int> dilation,
     int n_weight_grps, int n_offset_grps, int n_parallel_imgs) {
+  at::Tensor input = input_param;
+  at::Tensor offset = offset_param;
+  at::Tensor weight = weight_param;
+
   TORCH_CHECK(input.ndimension() == 4);
   TORCH_CHECK(offset.ndimension() == 4);
   TORCH_CHECK(weight.ndimension() == 4);
@@ -589,7 +593,7 @@ static at::Tensor deform_conv_backward_parameters_cpu(
   for (int elt = 0; elt < batch_sz / n_parallel_imgs; elt++) {
     deformable_im2col(input[elt], offset[elt], n_in_channels, in_h,
                       in_w, weight_h, weight_w, pad_h, pad_w, stride_h, stride_w, dil_h,
-                      dil_w, n_parallel_imgs, out_h, out_w, n_offset_grps, columns);
+                      dil_w, out_h, out_w, n_parallel_imgs, n_offset_grps, columns);
 
     columns = columns.view({n_weight_grps, columns.size(0) / n_weight_grps, columns.size(1)});
     for (int g = 0; g < n_weight_grps; g++) {

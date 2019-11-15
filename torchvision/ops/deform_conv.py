@@ -1,5 +1,5 @@
 import torch
-from torch import nn, Tensor
+from torch import nn, Tensor, Tuple
 
 from torch.nn.modules.utils import _pair
 from torch.jit.annotations import List
@@ -35,15 +35,15 @@ def deform_conv(input, offset, weight, stride=(1, 1), pad=(0, 0), dilation=(1, 1
     n_weight_grps = n_in_channels // weight.shape[1]
 
     return torch.ops.torchvision.deform_conv(
-                input,
-                offset,
-                weight,
-                *stride,
-                *pad,
-                *dilation,
-                n_weight_grps,
-                n_offset_grps,
-                n_parallel_imgs)
+        input,
+        offset,
+        weight,
+        *stride,
+        *pad,
+        *dilation,
+        n_weight_grps,
+        n_offset_grps,
+        n_parallel_imgs)
 
 
 class DeformConv(nn.Module):
@@ -59,7 +59,7 @@ class DeformConv(nn.Module):
 
     def forward(self, input, offset, weight):
         return deform_conv(input, offset, weight, stride=self.stride, pad=self.pad,
-                    dilation=self.dilation, n_parallel_imgs=self.n_parallel_imgs)
+                           dilation=self.dilation, n_parallel_imgs=self.n_parallel_imgs)
 
     def __repr__(self):
         tmpstr = self.__class__.__name__ + '('
