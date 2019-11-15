@@ -412,7 +412,7 @@ class DeformConvTester(OpTester, unittest.TestCase):
                                     out[b, c_out, i, j] += weights[c_out, c, di, dj] * bilinear_interpolate(x[b, c_in, :, :], pi, pj)
         return out
 
-    def _test_forward(self, device, contiguous):
+    def get_inputs(self, device, contiguous):
         batch_sz = 1
         n_in_channels = 6
         n_out_channels = 2
@@ -441,26 +441,21 @@ class DeformConvTester(OpTester, unittest.TestCase):
             offset = offset.permute(1, 3, 0, 2).contiguous().permute(2, 0, 3, 1)
             weight = weight.permute(3, 2, 0, 1).contiguous().permute(2, 3, 1, 0)
 
+        return x, offset, weight, stride, pad, dilation
+
+    def _test_forward(self, device, contiguous):
+        x, offset, weight, stride, pad, dilation = self.get_inputs(device, contiguous)
+
         res = ops.deform_conv(x, offset, weight, stride=stride, pad=pad, dilation=dilation)
         expected = self.expected_fn(x, offset, weight, stride=stride, pad=pad, dilation=dilation)
 
-        self.assertTrue(torch.allclose(res, expected), '\nx:\n{}\nres:\n{}\nexp:\n{}'.format(x, res, expected))
+        self.assertTrue(torch.allclose(res, expected), '\nres:\n{}\nexpected:\n{}'.format(x, res, expected))
 
     def _test_backward(self, device, contiguous):
-        n_weight_grps = 2
-        n_offset_grps = 3
-        x = torch.rand(1, 6, 5, 4, requires_grad=True, device=device, dtype=self.dtype)
-        offset = torch.randn(1, n_offset_grps * 8, 4, 3, device=device, dtype=self.dtype)
-        weight = torch.randn(2, 6 // n_weight_grps, 2, 2, device=device, dtype=self.dtype)
-
-        if not contiguous:
-            x = x.permute(0, 1, 3, 2).contiguous().permute(0, 1, 3, 2)
-            offset = offset.permute(1, 3, 0, 2).contiguous().permute(2, 0, 3, 1)
-            weight = weight.permute(3, 2, 0, 1).contiguous().permute(2, 3, 1, 0)
+        x, offset, weight, stride, pad, dilation = self.get_inputs(device, contiguous)
 
         def fn(z):
-            return ops.deform_conv(z, offset, weight)
-
+            return ops.deform_conv(z, offset, weight, stride=stride, pad=pad, dilation=dilation)
         gradcheck(fn, (x,), nondet_tol=1e-5)
 
 
