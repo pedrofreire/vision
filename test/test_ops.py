@@ -476,7 +476,7 @@ class DeformConvTester(OpTester, unittest.TestCase):
         weight = torch.randn(n_out_channels, n_in_channels // n_weight_grps, weight_h, weight_w, device=device, dtype=self.dtype, requires_grad=True)
 
         def func(x_arg, offset_arg, weight_arg):
-            return ops.deform_conv(x_arg, offset_arg, weight_arg, wei, stride=stride, pad=pad, dilation=dilation)
+            return ops.deform_conv(x_arg, offset_arg, weight_arg, stride=stride, pad=pad, dilation=dilation)
         gradcheck(func, (x, offset, weight), nondet_tol=1e-5)
 
         @torch.jit.script
