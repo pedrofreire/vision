@@ -218,7 +218,7 @@ at::Tensor DCN_forward_cpu(
   auto columns = at::zeros({in_channels * weight_h * weight_w, im2col_block * out_h * out_w}, input.options());
   for (int b = 0; b < batch_sz / im2col_block; b++) {
     deformable_im2col(input[b], offset[b], in_channels, in_h,
-                      in_w, weight_w, weight_h, pad_h, pad_w, stride_h, stride_w, dil_h,
+                      in_w, weight_h, weight_w, pad_h, pad_w, stride_h, stride_w, dil_h,
                       dil_w, out_h, out_w, im2col_block, n_offset_grps, columns);
 
     columns = columns.view({n_weight_grps, columns.size(0) / n_weight_grps, columns.size(1)});
