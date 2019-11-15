@@ -455,7 +455,7 @@ class DeformConvTester(OpTester, unittest.TestCase):
         x, offset, weight, stride, pad, dilation = self.get_fn_args(device, contiguous)
 
         def func(z, wei):
-            return ops.deform_conv(z, off, wei, stride=stride, pad=pad, dilation=dilation)
+            return ops.deform_conv(z, offset, wei, stride=stride, pad=pad, dilation=dilation)
         gradcheck(func, (x, weight), nondet_tol=1e-5)
 
         @torch.jit.script
