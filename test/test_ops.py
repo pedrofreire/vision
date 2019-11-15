@@ -189,12 +189,12 @@ def bilinear_interpolate(data, y, x, snap_border=False):
     if snap_border:
         if -1 < y <= 0:
             y = 0
-        else if height - 1 <= y < height:
+        elif height - 1 <= y < height:
             y = height - 1
 
         if -1 < x <= 0:
             x = 0
-        else if width - 1 <= x < width:
+        elif width - 1 <= x < width:
             x = width - 1
 
     y_low = int(math.floor(y))
