@@ -413,6 +413,9 @@ class DeformConvTester(OpTester, unittest.TestCase):
         return out
 
     def _test_forward(self, device, contiguous):
+        batch_sz = 1
+        n_in_channels = 6
+        n_out_channels = 2
         n_weight_grps = 2
         n_offset_grps = 3
 
@@ -429,9 +432,9 @@ class DeformConvTester(OpTester, unittest.TestCase):
         out_h = (in_h + 2 * pad_h - (dil_h * (weight_h - 1) + 1)) // stride_h + 1
         out_w = (in_w + 2 * pad_w - (dil_w * (weight_w - 1) + 1)) // stride_w + 1
 
-        x = torch.rand(1, 6, in_h, in_w, device=device, dtype=self.dtype)
-        offset = torch.randn(1, n_offset_grps * 8, out_h, out_w, device=device, dtype=self.dtype)
-        weight = torch.randn(2, 6 // n_weight_grps, 2, 2, device=device, dtype=self.dtype)
+        x = torch.rand(batch_sz, n_in_channels, in_h, in_w, device=device, dtype=self.dtype)
+        offset = torch.randn(batch_sz, n_offset_grps * 2 * weight_h * weight_w, out_h, out_w, device=device, dtype=self.dtype)
+        weight = torch.randn(n_out_channels, n_in_channels // n_weight_grps, weight_h, weight_w, device=device, dtype=self.dtype)
 
         if not contiguous:
             x = x.permute(0, 1, 3, 2).contiguous().permute(0, 1, 3, 2)
