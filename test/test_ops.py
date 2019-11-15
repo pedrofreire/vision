@@ -428,9 +428,10 @@ class DeformConvTester(OpTester, unittest.TestCase):
         self.assertTrue(torch.allclose(res, expected), '\nx:\n{}\nres:\n{}\nexp:\n{}'.format(x, res, expected))
 
     def _test_backward(self, device, contiguous):
-        x = torch.ones(1, 1, 5, 5, requires_grad=True, device=device, dtype=self.dtype)
-        offset = torch.zeros(1, 8, 4, 4, device=device, dtype=self.dtype)
-        weight = torch.ones(1, 1, 2, 2, device=device, dtype=self.dtype)
+        n_offset_grps = 2
+        x = torch.rand(1, 2, 5, 5, device=device, dtype=self.dtype)
+        offset = torch.randn(1, n_offset_grps * 8, 4, 4, device=device, dtype=self.dtype)
+        weight = torch.randn(2, 1, 2, 2, device=device, dtype=self.dtype)
 
         if not contiguous:
             x = x.permute(0, 1, 3, 2).contiguous().permute(0, 1, 3, 2)
