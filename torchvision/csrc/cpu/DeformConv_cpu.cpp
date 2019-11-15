@@ -180,9 +180,9 @@ at::Tensor DCN_forward_cpu(
     std::pair<int, int> pad,
     std::pair<int, int> dilation,
     int n_weight_grps, int n_offset_grps, int n_parallel_imgs) {
-  at::Tensor input = input_param;
-  at::Tensor offset = offset_param;
-  at::Tensor weight = weight_param;
+  auto input = input_param;
+  auto offset = offset_param;
+  auto weight = weight_param;
 
   TORCH_CHECK(input.ndimension() == 4);
   TORCH_CHECK(offset.ndimension() == 4);
