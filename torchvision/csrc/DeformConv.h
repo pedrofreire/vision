@@ -15,17 +15,17 @@ at::Tensor DCN_forward(
     const std::pair<int, int>& dilation,
     const int groups,
     const int deformable_groups,
-    const int im2col_step) {
+    const int n_parallel_imgs) {
   if (input.type().is_cuda()) {
 #ifdef WITH_CUDA
     return DCN_forward_cuda(input.contiguous(), offset.contiguous(), weights.contiguous(), stride, pad,
-                      dilation, groups, deformable_groups, im2col_step);
+                      dilation, groups, deformable_groups, n_parallel_imgs);
 #else
     AT_ERROR("Not compiled with GPU support");
 #endif
   }
   return DCN_forward_cpu(input.contiguous(), offset.contiguous(), weights.contiguous(), stride, pad,
-                    dilation, groups, deformable_groups, im2col_step);
+                    dilation, groups, deformable_groups, n_parallel_imgs);
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> DCN_backward(
@@ -38,17 +38,17 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> DCN_backward(
     const std::pair<int, int>& dilation,
     const int groups,
     const int deformable_groups,
-    const int im2col_step) {
+    const int n_parallel_imgs) {
   if (grad.type().is_cuda()) {
 #ifdef WITH_CUDA
     return DCN_backward_cuda(grad.contiguous(), input.contiguous(), offset.contiguous(), weights.contiguous(), stride, pad,
-                      dilation, groups, deformable_groups, im2col_step);
+                      dilation, groups, deformable_groups, n_parallel_imgs);
 #else
     AT_ERROR("Not compiled with GPU support");
 #endif
   }
   return DCN_backward_cpu(grad.contiguous(), input.contiguous(), offset.contiguous(), weights.contiguous(), stride, pad,
-                      dilation, groups, deformable_groups, im2col_step);
+                      dilation, groups, deformable_groups, n_parallel_imgs);
 }
 
 using namespace at;
@@ -69,12 +69,12 @@ class DeformConvFunction : public torch::autograd::Function<DeformConvFunction> 
       int64_t dilation_h, int64_t dilation_w,
       int64_t groups,
       int64_t deformable_groups,
-      int64_t im2col_step) {
+      int64_t n_parallel_imgs) {
     auto output = DCN_forward(input, offset, weights,
         {stride_h, stride_w},
         {pad_h, pad_w},
         {dilation_h, dilation_w},
-        groups, deformable_groups, im2col_step);
+        groups, deformable_groups, n_parallel_imgs);
 
     ctx->save_for_backward({input, offset, weights});
     ctx->saved_data["stride_h"] = stride_h;
@@ -85,7 +85,7 @@ class DeformConvFunction : public torch::autograd::Function<DeformConvFunction> 
     ctx->saved_data["dilation_w"] = dilation_w;
     ctx->saved_data["groups"] = groups;
     ctx->saved_data["deformable_groups"] = deformable_groups;
-    ctx->saved_data["im2col_step"] = im2col_step;
+    ctx->saved_data["n_parallel_imgs"] = n_parallel_imgs;
 
     return {output,};
   }
@@ -106,14 +106,14 @@ class DeformConvFunction : public torch::autograd::Function<DeformConvFunction> 
     auto dilation_w = ctx->saved_data["dilation_w"].toInt();
     auto groups = ctx->saved_data["groups"].toInt();
     auto deformable_groups = ctx->saved_data["deformable_groups"].toInt();
-    auto im2col_step = ctx->saved_data["im2col_step"].toInt();
+    auto n_parallel_imgs = ctx->saved_data["n_parallel_imgs"].toInt();
 
     auto grads = DCN_backward(grad_output[0],
         input, offset, weight,
         {stride_h, stride_w},
         {pad_h, pad_w},
         {dilation_h, dilation_w},
-        groups, deformable_groups, im2col_step);
+        groups, deformable_groups, n_parallel_imgs);
     auto grad_input = std::get<0>(grads);
     auto grad_offset = std::get<1>(grads);
     auto grad_weight = std::get<2>(grads);
@@ -134,8 +134,8 @@ Tensor deform_conv(
     int64_t dilation_h, int64_t dilation_w,
     int64_t groups,
     int64_t deformable_groups,
-    int64_t im2col_step) {
+    int64_t n_parallel_imgs) {
   auto result = DeformConvFunction::apply(input, offset, weights, stride_h, stride_w, pad_h, pad_w,
-                          dilation_h, dilation_w, groups, deformable_groups, im2col_step);
+                          dilation_h, dilation_w, groups, deformable_groups, n_parallel_imgs);
   return result[0];
 }
