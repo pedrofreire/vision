@@ -279,8 +279,8 @@ static scalar_t get_coordinate_weight(const scalar_t *im_data, const int height,
 
   bool valid_y_l = 0 <= y_l && y_l < height;
   bool valid_y_h = 0 <= y_h && y_h < height;
-  bool valid_x_l = 0 <= y_l && y_l < width;
-  bool valid_x_h = 0 <= y_h && y_h < width;
+  bool valid_x_l = 0 <= x_l && x_l < width;
+  bool valid_x_h = 0 <= x_h && x_h < width;
 
   scalar_t zero = 0;
   scalar_t v_yx = (valid_y_l && valid_x_l) ? im_data[y_l * width + x_l] : zero;
@@ -563,8 +563,8 @@ static at::Tensor deform_conv_backward_parameters_cpu(
   int dil_h = dilation.first;
   int dil_w = dilation.second;
 
-  long out_w = grad_out.size(2);
-  long out_h = grad_out.size(3);
+  long out_h = grad_out.size(2);
+  long out_w = grad_out.size(3);
 
   auto grad_weight = at::zeros_like(weight);;
   auto columns = at::zeros({n_in_channels * weight_w * weight_h, im2col_block * out_h * out_w}, input.options());
