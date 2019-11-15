@@ -49,6 +49,7 @@ static void deformable_im2col_kernel(const int n, const scalar_t* input_ptr, con
                                              const int batch_sz, const int n_in_channels, const int n_offset_grps,
                                              const int out_h, const int out_w,
                                              scalar_t* columns_ptr) {
+  return;
   for(int index = 0; index != n; ++index) {
     const int out_x = index % out_w;
     const int out_y = (index / out_w) % out_h;
@@ -276,8 +277,8 @@ static void deformable_col2im_kernel(
     const int dilation_h, const int dilation_w,
     const int batch_size, const int n_offset_grps,
     const int out_h, const int out_w,
-    scalar_t *grad_im)
-{
+    scalar_t *grad_im) {
+  return;
   for(int index = 0; index != n; ++index) {
     const int j = (index / (out_w * out_h * batch_size)) % kernel_w;
     const int i = (index / (out_w * out_h * batch_size * kernel_w)) % kernel_h;
@@ -350,8 +351,8 @@ static void deformable_col2im_coord_kernel(const int n, const scalar_t *col_ptr,
                                                    const int stride_h, const int stride_w,
                                                    const int dilation_h, const int dilation_w,
                                                    const int batch_size, const int offset_channels, const int n_offset_grps,
-                                                   const int out_h, const int out_w, scalar_t *grad_offset)
-{
+                                                   const int out_h, const int out_w, scalar_t *grad_offset) {
+  return;
   for(int index = 0; index != n; ++index) {
     scalar_t val = 0;
     int w = index % out_w;
