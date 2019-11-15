@@ -1,16 +1,15 @@
 from __future__ import division
 import math
+from typing import Tuple
+import unittest
+
 import numpy as np
+
 import torch
 from torch.autograd import gradcheck
 from torch.nn.modules.utils import _pair
-
-from torch import Tensor, Tuple
-
+from torch import Tensor
 from torchvision import ops
-
-from itertools import product
-import unittest
 
 
 class OpTester(object):
