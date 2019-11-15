@@ -432,9 +432,9 @@ class DeformConvTester(OpTester, unittest.TestCase):
         weight = torch.ones(1, 1, 2, 2, device=device, dtype=self.dtype)
 
         if not contiguous:
-            x = x.permute(0, 1, 3, 2)
-            offset = offset.permute(1, 3, 0, 2)
-            weight = weight.permute(3, 2, 0, 1)
+            x = x.permute(0, 1, 3, 2).contiguous().permute(0, 1, 3, 2)
+            offset = offset.permute(1, 3, 0, 2).contiguous().permute(2, 0, 3, 1)
+            weight = weight.permute(3, 2, 0, 1).contiguous().permute(2, 3, 1, 0)
 
         def fn(z):
             return ops.deform_conv(z, offset, weight)
