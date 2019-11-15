@@ -54,7 +54,7 @@ class DeformConv(nn.Module):
     """
     See deform_conv
     """
-    def __init__(self, output_size, *args, stride=1, pad=0, dilation=1, n_parallel_imgs=64):
+    def __init__(self, *args, stride=1, pad=0, dilation=1, n_parallel_imgs=64):
         super(DeformConv, self).__init__()
         self.stride = stride
         self.pad = pad
