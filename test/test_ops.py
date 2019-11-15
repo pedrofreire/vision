@@ -454,9 +454,9 @@ class DeformConvTester(OpTester, unittest.TestCase):
     def _test_backward(self, device, contiguous):
         x, offset, weight, stride, pad, dilation = self.get_fn_args(device, contiguous)
 
-        def func(z, off, wei):
+        def func(z, wei):
             return ops.deform_conv(z, off, wei, stride=stride, pad=pad, dilation=dilation)
-        gradcheck(func, (x, offset, weight), nondet_tol=1e-5)
+        gradcheck(func, (x, weight), nondet_tol=1e-5)
 
         @torch.jit.script
         def script_func(z, rois, pool_size):
