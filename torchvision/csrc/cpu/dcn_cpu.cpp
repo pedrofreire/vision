@@ -107,7 +107,7 @@ static void deformable_im2col(
       }));
 }
 
-static void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
+static void shape_check(at::Tensor input, at::Tensor offset,
                  at::Tensor weight, std::pair<int, int> stride, std::pair<int, int> pad,
                  std::pair<int, int> dilation, int n_weight_grps, int n_offset_grps) {
   TORCH_CHECK(input.ndimension() == 4);
@@ -155,9 +155,6 @@ static void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOut
 
   TORCH_CHECK(out_h > 0 && out_w > 0,
       "Calculated output size too small - out_h: ", out_h, " out_w: ", out_w);
-
-  if (gradOutput != NULL) {
-  }
 }
 
 
@@ -169,14 +166,12 @@ at::Tensor DCN_forward_cpu(
     std::pair<int, int> pad,
     std::pair<int, int> dilation,
     int n_weight_grps, int n_offset_grps, int im2col_block) {
-  TORCH_CHECK(!input.device().is_cuda(), "input must be a CPU tensor");
+  TORCH_CHECK(input.device().is_cpu(), "input must be a CPU tensor");
   int batch_size = input.size(0);
   im2col_block = std::min(batch_size, im2col_block);
   TORCH_CHECK(batch_size % im2col_block == 0);
-  shape_check(input, offset, NULL, weight, stride, pad, dilation, n_weight_grps, n_offset_grps);
+  shape_check(input, offset, weight, stride, pad, dilation, n_weight_grps, n_offset_grps);
 
-  at::DeviceGuard guard(input.device());
-  
   // make args contiguous
   input = input.contiguous();
   offset = offset.contiguous();
@@ -459,8 +454,6 @@ static std::tuple<at::Tensor, at::Tensor> deform_conv_backward_input_cpu(
   long out_w = (in_w + 2 * pad_w - (dil_w * (weight_w - 1) + 1)) / stride_w + 1;
   long out_h = (in_h + 2 * pad_h - (dil_h * (weight_h - 1) + 1)) / stride_h + 1;
 
-  at::DeviceGuard guard(input.device());
-
   auto grad_input = at::zeros_like(input);
   auto grad_offset = at::zeros_like(offset);
   auto columns = at::zeros({n_in_channels * weight_w * weight_h, im2col_block * out_h * out_w}, input.options());
@@ -530,8 +523,6 @@ static at::Tensor deform_conv_backward_parameters_cpu(
 
   int dil_h = dilation.first;
   int dil_w = dilation.second;
-
-  at::DeviceGuard guard(input.device());
 
   long batch_sz = input.size(0);
   long n_in_channels = input.size(1);

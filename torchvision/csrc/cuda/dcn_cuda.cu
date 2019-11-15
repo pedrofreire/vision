@@ -128,7 +128,7 @@ void deformable_im2col(
   }
 }
 
-void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
+void shape_check(at::Tensor input, at::Tensor offset,
                  at::Tensor weight, std::pair<int, int> stride, std::pair<int, int> pad,
                  std::pair<int, int> dilation, int n_weight_grps, int n_offset_grps) {
   TORCH_CHECK(input.ndimension() == 4);
@@ -176,9 +176,6 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
 
   TORCH_CHECK(out_h > 0 && out_w > 0,
       "Calculated output size too small - out_h: ", out_h, " out_w: ", out_w);
-
-  if (gradOutput != NULL) {
-  }
 }
 
 
@@ -195,7 +192,7 @@ at::Tensor DCN_forward_cuda(
   int batch_size = input.size(0);
   im2col_block = std::min(batch_size, im2col_block);
   TORCH_CHECK(batch_size % im2col_block == 0);
-  shape_check(input, offset, NULL, weight, stride, pad, dilation, n_weight_grps, n_offset_grps);
+  shape_check(input, offset, weight, stride, pad, dilation, n_weight_grps, n_offset_grps);
 
   at::DeviceGuard guard(input.device());
   
