@@ -434,6 +434,7 @@ class DeformConvTester(unittest.TestCase):
             x = x.permute(0, 1, 3, 2)
             offset = offset.permute(1, 3, 0, 2)
             weight = weight.permute(3, 2, 0, 1)
+
         def fn(z):
             return ops.deform_conv(z, offset, weight)
 
