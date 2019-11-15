@@ -62,7 +62,8 @@ class DeformConv(nn.Module):
         self.n_parallel_imgs = n_parallel_imgs
 
     def forward(self, input, offset, weight):
-        return deform_conv(input, stride=self.stride, pad=self.pad, dilation=self.dilation, n_parallel_imgs=self.n_parallel_imgs)
+        return deform_conv(input, offset, weight, stride=self.stride, pad=self.pad,
+                    dilation=self.dilation, n_parallel_imgs=self.n_parallel_imgs)
 
     def __repr__(self):
         tmpstr = self.__class__.__name__ + '('
