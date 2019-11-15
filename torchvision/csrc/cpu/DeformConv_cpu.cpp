@@ -173,9 +173,9 @@ static void deformable_im2col(
 }
 
 at::Tensor DCN_forward_cpu(
-    at::Tensor input,
-    at::Tensor offset,
-    at::Tensor weight,
+    const at::Tensor& input,
+    const at::Tensor& offset,
+    const at::Tensor& weight,
     std::pair<int, int> stride,
     std::pair<int, int> pad,
     std::pair<int, int> dilation,
@@ -482,8 +482,8 @@ static std::tuple<at::Tensor, at::Tensor> deform_conv_backward_input_cpu(
   int dil_h = dilation.first;
   int dil_w = dilation.second;
 
-  long out_w = (in_w + 2 * pad_w - (dil_w * (weight_w - 1) + 1)) / stride_w + 1;
   long out_h = (in_h + 2 * pad_h - (dil_h * (weight_h - 1) + 1)) / stride_h + 1;
+  long out_w = (in_w + 2 * pad_w - (dil_w * (weight_w - 1) + 1)) / stride_w + 1;
 
   auto grad_input = at::zeros_like(input);
   auto grad_offset = at::zeros_like(offset);
@@ -611,10 +611,10 @@ static at::Tensor deform_conv_backward_parameters_cpu(
 
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> DCN_backward_cpu(
-    at::Tensor grad_out,
-    at::Tensor input,
-    at::Tensor offset,
-    at::Tensor weight,
+    const at::Tensor& grad_out,
+    const at::Tensor& input,
+    const at::Tensor& offset,
+    const at::Tensor& weight,
     std::pair<int, int> stride,
     std::pair<int, int> pad,
     std::pair<int, int> dilation,
