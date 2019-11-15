@@ -456,12 +456,12 @@ class DeformConvTester(OpTester, unittest.TestCase):
 
         def func(z):
             return ops.deform_conv(z, offset, weight, stride=stride, pad=pad, dilation=dilation)
+        gradcheck(func, (x, offset, weight), nondet_tol=1e-5)
 
         @torch.jit.script
         def script_func(z, rois, pool_size):
             # type: (torch.Tensor, torch.Tensor, int) -> torch.Tensor
-            return ops.deform_conv(z, offset, weight, stride=stride, pad=pad, dilation=dilation)
-
+            return ops.deform_conv(z, offset, weight, stride=stride, pad=pad, dilation=dilation)[0]
         gradcheck(script_func, (x, offset, weight), nondet_tol=1e-5)
 
 
