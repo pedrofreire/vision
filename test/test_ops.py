@@ -11,7 +11,7 @@ from itertools import product
 import unittest
 
 
-class RoIOpTester(object):
+class OpTester(object):
     @classmethod
     def setUpClass(cls):
         cls.dtype = torch.float64
@@ -44,6 +44,14 @@ class RoIOpTester(object):
     def test_backward_cuda_non_contiguous(self):
         self._test_backward(device=torch.device('cuda'), contiguous=False)
 
+    def _test_forward(self, device, contiguous):
+        pass
+
+    def _test_backward(self, device, contiguous):
+        pass
+
+
+class RoIOpTester(OpTester):
     def _test_forward(self, device, contiguous):
         pool_size = 5
         # n_channels % (pool_size ** 2) == 0 required for PS opeartions.
@@ -81,7 +89,6 @@ class RoIOpTester(object):
 
         self.assertTrue(gradcheck(func, (x,)))
         self.assertTrue(gradcheck(script_func, (x,)))
-        return
 
     def fn(*args, **kwargs):
         pass
@@ -364,7 +371,7 @@ class NMSTester(unittest.TestCase):
             self.assertTrue(torch.allclose(r_cpu, r_cuda.cpu()), err_msg.format(iou))
 
 
-class DCNTester(unittest.TestCase):
+class DeformConvTester(unittest.TestCase):
     def expected_fn(self, x, offsets, weights, stride=1, pad=0, dilation=1):
         stride_h, stride_w = _pair(stride)
         pad_h, pad_w = _pair(pad)
@@ -403,50 +410,26 @@ class DCNTester(unittest.TestCase):
                                     out[b, c_out, i, j] += weights[c_out, c, di, dj] * val
         return out
 
-
-    def test_forward_cpu(self):
-        x = 10 * torch.ones(1, 1, 5, 5, device=torch.device('cpu'), dtype=torch.float64)
-        offset = torch.zeros(1, 8, 4, 4, device=torch.device('cpu'), dtype=torch.float64)
-        weight = torch.ones(1, 1, 2, 2, device=torch.device('cpu'), dtype=torch.float64)
-
-        res = ops.deform_conv(x, offset, weight)
-        expected = self.expected_fn(x, offset, weight).to(device=torch.device('cpu'), dtype=torch.float64)
-
-        self.assertTrue(torch.allclose(res, expected), '\n{}\n\n{}'.format(res, expected))
-
-    def test_backward_cpu(self):
-        x = 10 * torch.ones(1, 1, 5, 5, requires_grad=True, device=torch.device('cpu'), dtype=torch.float64)
-        offset = torch.zeros(1, 8, 4, 4, device=torch.device('cpu'), dtype=torch.float64)
-        weight = torch.ones(1, 1, 2, 2, device=torch.device('cpu'), dtype=torch.float64)
-
-        def fn(z):
-            return ops.deform_conv(z, offset, weight)
-
-        gradcheck(fn, (x,))
-
-    @unittest.skipIf(not torch.cuda.is_available(), "CUDA unavailable")
-    def test_forward_cuda(self):
-        n_weight_grps = 2
-        n_offset_grps = 2
-        x = 10 * torch.rand(1, 2, 5, 5, device=torch.device('cuda'), dtype=torch.float64)
-        offset = torch.randn(1, n_offset_grps * 8, 4, 4, device=torch.device('cuda'), dtype=torch.float64)
-        weight = torch.randn(2, 1, 2, 2, device=torch.device('cuda'), dtype=torch.float64)
+    def _test_forward(self, device, contiguous):
+        x = 10 * torch.rand(1, 2, 5, 5, device=device, dtype=torch.float64)
+        offset = torch.randn(1, n_offset_grps * 8, 4, 4, device=device, dtype=torch.float64)
+        weight = torch.randn(2, 1, 2, 2, device=device, dtype=torch.float64)
 
         res = ops.deform_conv(x, offset, weight)
-        expected = self.expected_fn(x, offset, weight).to(device=torch.device('cuda'), dtype=torch.float64)
+        expected = self.expected_fn(x, offset, weight).to(device=device, dtype=torch.float64)
 
         self.assertTrue(torch.allclose(res, expected), '\nx:\n{}\nres:\n{}\nexp:\n{}'.format(x, res, expected))
 
-    @unittest.skipIf(not torch.cuda.is_available(), "CUDA unavailable")
-    def test_backward_cuda(self):
-        x = 10 * torch.ones(1, 1, 5, 5, requires_grad=True, device=torch.device('cuda'), dtype=torch.float64)
-        offset = torch.zeros(1, 8, 4, 4, device=torch.device('cuda'), dtype=torch.float64)
-        weight = torch.ones(1, 1, 2, 2, device=torch.device('cuda'), dtype=torch.float64)
+    def _test_backward(self, device, contiguous):
+        x = 10 * torch.ones(1, 1, 5, 5, requires_grad=True, device=device, dtype=torch.float64)
+        offset = torch.zeros(1, 8, 4, 4, device=device, dtype=torch.float64)
+        weight = torch.ones(1, 1, 2, 2, device=device, dtype=torch.float64)
 
         def fn(z):
             return ops.deform_conv(z, offset, weight)
 
         gradcheck(fn, (x,))
+
 
 if __name__ == '__main__':
     unittest.main()
