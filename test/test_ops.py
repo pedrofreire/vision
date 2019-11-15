@@ -2,6 +2,7 @@ from __future__ import division
 import numpy as np
 import torch
 from torch.autograd import gradcheck
+from torch.nn.modules.utils import _pair
 
 from torchvision import ops
 
