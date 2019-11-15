@@ -42,14 +42,13 @@ static scalar_t bilinear_interpolate(const scalar_t *in, const int height, const
 }
 
 template <typename scalar_t>
-static void deformable_im2col_kernel(const int n, const scalar_t* input_ptr, const scalar_t* offset_ptr,
+static void deformable_im2col_kernel(const int n, const scalar_t* input, const scalar_t* offset,
                                              const int height, const int width, const int weight_h, const int weight_w,
                                              const int pad_h, const int pad_w, const int stride_h, const int stride_w,
                                              const int dil_h, const int dil_w,
                                              const int batch_sz, const int n_in_channels, const int n_offset_grps,
                                              const int out_h, const int out_w,
-                                             scalar_t* columns_ptr) {
-  return;
+                                             scalar_t* columns) {
   for(int index = 0; index != n; ++index) {
     const int out_x = index % out_w;
     const int out_y = (index / out_w) % out_h;
@@ -60,15 +59,15 @@ static void deformable_im2col_kernel(const int n, const scalar_t* input_ptr, con
     int c_per_offset_grp = n_in_channels / n_offset_grps;
     const int grp_idx = in_c / c_per_offset_grp;
 
-    columns_ptr += (out_c * (batch_sz * out_h * out_w)
-                  + out_b * (out_h * out_w)
-                  + out_y * out_w
-                  + out_x);
+    auto columns_ptr = columns + (out_c * (batch_sz * out_h * out_w)
+                                + out_b * (out_h * out_w)
+                                + out_y * out_w
+                                + out_x);
 
-    input_ptr += (out_b * (n_in_channels * height * width)
-                 + in_c * (height * width));
+    auto input_ptr = input + (out_b * (n_in_channels * height * width)
+                           + in_c * (height * width));
 
-    offset_ptr += (out_b * n_offset_grps + grp_idx) * 2 * weight_h * weight_w * out_h * out_w;
+    auto offset_ptr = offset + (out_b * n_offset_grps + grp_idx) * 2 * weight_h * weight_w * out_h * out_w;
 
     for (int i = 0; i < weight_h; ++i) {
       for (int j = 0; j < weight_w; ++j) {
@@ -269,7 +268,7 @@ static scalar_t get_coordinate_weight(const scalar_t *im_data, const int height,
 
 template <typename scalar_t>
 static void deformable_col2im_kernel(
-    const int n, const scalar_t *col, const scalar_t *offset_ptr,
+    const int n, const scalar_t *col, const scalar_t *offset,
     const int channels, const int height, const int width,
     const int kernel_h, const int kernel_w,
     const int pad_h, const int pad_w,
@@ -278,7 +277,6 @@ static void deformable_col2im_kernel(
     const int batch_size, const int n_offset_grps,
     const int out_h, const int out_w,
     scalar_t *grad_im) {
-  return;
   for(int index = 0; index != n; ++index) {
     const int j = (index / (out_w * out_h * batch_size)) % kernel_w;
     const int i = (index / (out_w * out_h * batch_size * kernel_w)) % kernel_h;
@@ -292,7 +290,7 @@ static void deformable_col2im_kernel(
     int out_y = (index / out_w) % out_h;
     int b = (index / (out_w * out_h)) % batch_size;
 
-    offset_ptr += (b * n_offset_grps + offset_grp) * 2 * kernel_h * kernel_w * out_h * out_w;
+    auto offset_ptr = offset + (b * n_offset_grps + offset_grp) * 2 * kernel_h * kernel_w * out_h * out_w;
     const int offset_h_ptr = ((2 * (i * kernel_w + j)) * out_h + out_y) * out_w + out_x;
     const int offset_w_ptr = ((2 * (i * kernel_w + j) + 1) * out_h + out_y) * out_w + out_x;
     const scalar_t offset_h = offset_ptr[offset_h_ptr];
@@ -352,7 +350,6 @@ static void deformable_col2im_coord_kernel(const int n, const scalar_t *col_ptr,
                                                    const int dilation_h, const int dilation_w,
                                                    const int batch_size, const int offset_channels, const int n_offset_grps,
                                                    const int out_h, const int out_w, scalar_t *grad_offset) {
-  return;
   for(int index = 0; index != n; ++index) {
     scalar_t val = 0;
     int w = index % out_w;
@@ -365,9 +362,9 @@ static void deformable_col2im_coord_kernel(const int n, const scalar_t *col_ptr,
 
     int c_per_offset_grp = channels / n_offset_grps;
 
-    col_ptr += offset_grp * c_per_offset_grp * weight_h * weight_w * batch_size * out_w * out_h;
-    im_ptr += (b * n_offset_grps + offset_grp) * c_per_offset_grp  * height * width;
-    offset_ptr += (b * n_offset_grps + offset_grp) * 2 * weight_h * weight_w * out_h * out_w;
+    auto col_ptr = col + offset_grp * c_per_offset_grp * weight_h * weight_w * batch_size * out_w * out_h;
+    auto im_ptr = im + (b * n_offset_grps + offset_grp) * c_per_offset_grp  * height * width;
+    auto offset_ptr = offset + (b * n_offset_grps + offset_grp) * 2 * weight_h * weight_w * out_h * out_w;
 
     const int offset_c = c - offset_grp * 2 * weight_h * weight_w;
     const int is_y_direction = offset_c % 2 == 0;
