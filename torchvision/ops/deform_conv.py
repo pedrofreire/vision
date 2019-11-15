@@ -5,7 +5,7 @@ from torch.nn.modules.utils import _pair
 from torch.jit.annotations import List
 
 
-def deform_conv(input, offset, weight, *args, stride=1, pad=0, dilation=1, n_parallel_imgs=64):
+def deform_conv(input, offset, weight, stride=1, pad=0, dilation=1, n_parallel_imgs=64):
     # type: (Tensor, Tensor, Tensor) -> Tensor
     """
     Performs Deformable Convolution described in Deformable Convolution Networks
@@ -54,7 +54,7 @@ class DeformConv(nn.Module):
     """
     See deform_conv
     """
-    def __init__(self, *args, stride=1, pad=0, dilation=1, n_parallel_imgs=64):
+    def __init__(self, stride=1, pad=0, dilation=1, n_parallel_imgs=64):
         super(DeformConv, self).__init__()
         self.stride = stride
         self.pad = pad
