@@ -412,7 +412,7 @@ class DCNTester(unittest.TestCase):
         offset = torch.zeros(1, 8, 4, 4, device=torch.device('cpu'), dtype=torch.float64)
         weight = torch.ones(1, 1, 2, 2, device=torch.device('cpu'), dtype=torch.float64)
 
-        res = ops.dcn(x, offset, weight)
+        res = ops.deform_conv(x, offset, weight)
         expected = self.expected_fn(x, offset, weight).to(device=torch.device('cpu'), dtype=torch.float64)
 
         self.assertTrue(torch.allclose(res, expected), '\n{}\n\n{}'.format(res, expected))
@@ -423,7 +423,7 @@ class DCNTester(unittest.TestCase):
         weight = torch.ones(1, 1, 2, 2, device=torch.device('cpu'), dtype=torch.float64)
 
         def fn(z):
-            return ops.dcn(z, offset, weight)
+            return ops.deform_conv(z, offset, weight)
 
         gradcheck(fn, (x,))
 
@@ -435,7 +435,7 @@ class DCNTester(unittest.TestCase):
         offset = torch.randn(1, n_offset_grps * 8, 4, 4, device=torch.device('cuda'), dtype=torch.float64)
         weight = torch.randn(2, 1, 2, 2, device=torch.device('cuda'), dtype=torch.float64)
 
-        res = ops.dcn(x, offset, weight)
+        res = ops.deform_conv(x, offset, weight)
         expected = self.expected_fn(x, offset, weight).to(device=torch.device('cuda'), dtype=torch.float64)
 
         self.assertTrue(torch.allclose(res, expected), '\nx:\n{}\nres:\n{}\nexp:\n{}'.format(x, res, expected))
@@ -447,7 +447,7 @@ class DCNTester(unittest.TestCase):
         weight = torch.ones(1, 1, 2, 2, device=torch.device('cuda'), dtype=torch.float64)
 
         def fn(z):
-            return ops.dcn(z, offset, weight)
+            return ops.deform_conv(z, offset, weight)
 
         gradcheck(fn, (x,))
 
