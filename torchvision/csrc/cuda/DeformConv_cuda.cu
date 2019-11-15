@@ -492,8 +492,8 @@ __global__ void deformable_col2im_coord_gpu_kernel(const int n, const scalar_t *
       const scalar_t offset_h = offset_ptr[offset_h_ptr];
       const scalar_t offset_w = offset_ptr[offset_w_ptr];
 
-      scalar_t y = (out_x * stride_w - pad_w) + i * dilation_h + offset_h;
-      scalar_t x = (out_y * stride_h - pad_h) + j * dilation_w + offset_w;
+      scalar_t y = (out_y * stride_h - pad_h) + i * dilation_h + offset_h;
+      scalar_t x = (out_x * stride_w - pad_w) + j * dilation_w + offset_w;
 
       const scalar_t weight = get_coordinate_weight(im_ptr, height, width, y, x, is_y_direction);
       val += weight * col_ptr[col_pos];
