@@ -18,13 +18,13 @@ at::Tensor DCN_forward(
     const int im2col_step) {
   if (input.type().is_cuda()) {
 #ifdef WITH_CUDA
-    return DCN_forward_cuda(input, offset, weights, stride, pad,
+    return DCN_forward_cuda(input.contiguous(), offset.contiguous(), weights.contiguous(), stride, pad,
                       dilation, groups, deformable_groups, im2col_step);
 #else
     AT_ERROR("Not compiled with GPU support");
 #endif
   }
-  return DCN_forward_cpu(input, offset, weights, stride, pad,
+  return DCN_forward_cpu(input.contiguous(), offset.contiguous(), weights.contiguous(), stride, pad,
                     dilation, groups, deformable_groups, im2col_step);
 }
 
@@ -41,13 +41,13 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> DCN_backward(
     const int im2col_step) {
   if (grad.type().is_cuda()) {
 #ifdef WITH_CUDA
-    return DCN_backward_cuda(grad, input, offset, weights, stride, pad,
+    return DCN_backward_cuda(grad.contiguous(), input.contiguous(), offset.contiguous(), weights.contiguous(), stride, pad,
                       dilation, groups, deformable_groups, im2col_step);
 #else
     AT_ERROR("Not compiled with GPU support");
 #endif
   }
-  return DCN_backward_cpu(grad, input, offset, weights, stride, pad,
+  return DCN_backward_cpu(grad.contiguous(), input.contiguous(), offset.contiguous(), weights.contiguous(), stride, pad,
                       dilation, groups, deformable_groups, im2col_step);
 }
 
