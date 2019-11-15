@@ -281,7 +281,6 @@ static void deformable_col2im_kernel(
     const int j = (index / (out_w * out_h * batch_size)) % kernel_w;
     const int i = (index / (out_w * out_h * batch_size * kernel_w)) % kernel_h;
     const int c = index / (out_w * out_h * batch_size * kernel_w * kernel_h);
-    // compute the start and end of the output
 
     int c_per_offset_grp = channels / n_offset_grps;
     const int offset_grp = c / c_per_offset_grp;
@@ -341,8 +340,8 @@ static void compute_grad_input(
 }
 
 template <typename scalar_t>
-static void deformable_col2im_coord_kernel(const int n, const scalar_t *col_ptr,
-                                                   const scalar_t *im_ptr, const scalar_t *offset_ptr,
+static void deformable_col2im_coord_kernel(const int n, const scalar_t *col,
+                                                   const scalar_t *im, const scalar_t *offset,
                                                    const int channels, const int height, const int width,
                                                    const int weight_h, const int weight_w,
                                                    const int pad_h, const int pad_w,
@@ -378,10 +377,10 @@ static void deformable_col2im_coord_kernel(const int n, const scalar_t *col_ptr,
       int j = (col_pos / (out_w * out_h * batch_size)) % weight_w;
       int i = (col_pos / (out_w * out_h * batch_size * weight_w)) % weight_h;
 
-      const int offset_h_ptr = (((2 * (i * weight_w + j)) * out_h + out_y) * out_w + out_x);
-      const int offset_w_ptr = (((2 * (i * weight_w + j) + 1) * out_h + out_y) * out_w + out_x);
-      const scalar_t offset_h = offset_ptr[offset_h_ptr];
-      const scalar_t offset_w = offset_ptr[offset_w_ptr];
+      const int offset_h_idx = (((2 * (i * weight_w + j)) * out_h + out_y) * out_w + out_x);
+      const int offset_w_idx = (((2 * (i * weight_w + j) + 1) * out_h + out_y) * out_w + out_x);
+      const scalar_t offset_h = offset_ptr[offset_h_idx];
+      const scalar_t offset_w = offset_ptr[offset_w_idx];
 
       scalar_t y = (out_x * stride_w - pad_w) + i * dilation_h + offset_h;
       scalar_t x = (out_y * stride_h - pad_h) + j * dilation_w + offset_w;
