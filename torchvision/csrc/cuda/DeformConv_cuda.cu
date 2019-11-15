@@ -338,34 +338,6 @@ at::Tensor DCN_forward_cuda(
 
 
 template <typename scalar_t>
-__device__ scalar_t get_coordinate_weight(const scalar_t *im_data, const int height, const int width, scalar_t y, scalar_t x, bool is_y_direction) {
-  int y_l = floor(y);
-  int x_l = floor(x);
-  int y_h = y_l + 1;
-  int x_h = x_l + 1;
-
-  bool valid_y_l = 0 <= y_l && y_l < height;
-  bool valid_y_h = 0 <= y_h && y_h < height;
-  bool valid_x_l = 0 <= y_l && y_l < width;
-  bool valid_x_h = 0 <= y_h && y_h < width;
-
-  scalar_t zero = 0;
-  scalar_t v_yx = (valid_y_l && valid_x_l) ? im_data[y_l * width + x_l] : zero;
-  scalar_t v_yX = (valid_y_l && valid_x_h) ? im_data[y_l * width + x_h] : zero;
-  scalar_t v_Yx = (valid_y_h && valid_x_l) ? im_data[y_h * width + x_l] : zero;
-  scalar_t v_YX = (valid_y_h && valid_x_h) ? im_data[y_h * width + x_h] : zero;
-
-  if (is_y_direction) {
-    scalar_t dx = x - x_l;
-    return dx * (v_YX - v_yX) + (1 - dx) * (v_Yx - v_yx);
-  } else {
-    scalar_t dy = y - y_l;
-    return dy * (v_YX - v_Yx) + (1 - dy) * (v_yX - v_yx);
-  }
-}
-
-
-template <typename scalar_t>
 __global__ void deformable_col2im_gpu_kernel(
     const int n, const scalar_t *col, const scalar_t *offset_ptr,
     const int channels, const int height, const int width,
@@ -379,17 +351,15 @@ __global__ void deformable_col2im_gpu_kernel(
 {
   CUDA_1D_KERNEL_LOOP(index, n)
   {
+    const int out_x = index % out_w;
+    const int out_y = (index / out_w) % out_h;
+    const int b = (index / (out_w * out_h)) % batch_sz;
     const int j = (index / (out_w * out_h * batch_sz)) % kernel_w;
     const int i = (index / (out_w * out_h * batch_sz * kernel_w)) % kernel_h;
     const int c = index / (out_w * out_h * batch_sz * kernel_w * kernel_h);
-    // compute the start and end of the output
 
     int c_per_offset_grp = channels / n_offset_grps;
     const int offset_grp = c / c_per_offset_grp;
-
-    int out_x = index % out_w;
-    int out_y = (index / out_w) % out_h;
-    int b = (index / (out_w * out_h)) % batch_sz;
 
     offset_ptr += (b * n_offset_grps + offset_grp) * 2 * kernel_h * kernel_w * out_h * out_w;
     const int offset_h_ptr = ((2 * (i * kernel_w + j)) * out_h + out_y) * out_w + out_x;
@@ -447,6 +417,35 @@ void compute_grad_input(
   }
 }
 
+
+template <typename scalar_t>
+__device__ scalar_t get_coordinate_weight(const scalar_t *im_data, const int height, const int width, scalar_t y, scalar_t x, bool is_y_direction) {
+  int y_l = floor(y);
+  int x_l = floor(x);
+  int y_h = y_l + 1;
+  int x_h = x_l + 1;
+
+  bool valid_y_l = 0 <= y_l && y_l < height;
+  bool valid_y_h = 0 <= y_h && y_h < height;
+  bool valid_x_l = 0 <= y_l && y_l < width;
+  bool valid_x_h = 0 <= y_h && y_h < width;
+
+  scalar_t zero = 0;
+  scalar_t v_yx = (valid_y_l && valid_x_l) ? im_data[y_l * width + x_l] : zero;
+  scalar_t v_yX = (valid_y_l && valid_x_h) ? im_data[y_l * width + x_h] : zero;
+  scalar_t v_Yx = (valid_y_h && valid_x_l) ? im_data[y_h * width + x_l] : zero;
+  scalar_t v_YX = (valid_y_h && valid_x_h) ? im_data[y_h * width + x_h] : zero;
+
+  if (is_y_direction) {
+    scalar_t dx = x - x_l;
+    return dx * (v_YX - v_yX) + (1 - dx) * (v_Yx - v_yx);
+  } else {
+    scalar_t dy = y - y_l;
+    return dy * (v_YX - v_Yx) + (1 - dy) * (v_yX - v_yx);
+  }
+}
+
+
 template <typename scalar_t>
 __global__ void deformable_col2im_coord_gpu_kernel(const int n, const scalar_t *col_ptr,
                                                    const scalar_t *im_ptr, const scalar_t *offset_ptr,
@@ -503,6 +502,7 @@ __global__ void deformable_col2im_coord_gpu_kernel(const int n, const scalar_t *
     grad_offset[index] = val;
   }
 }
+
 
 void compute_grad_offset(
     const at::Tensor columns, const at::Tensor input, const at::Tensor offset,
