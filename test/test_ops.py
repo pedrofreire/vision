@@ -458,7 +458,7 @@ class DeformConvTester(OpTester, unittest.TestCase):
             return ops.deform_conv(z, offset, weight, stride=stride, pad=pad, dilation=dilation)
 
         @torch.jit.script
-        def script_func(input, rois, pool_size):
+        def script_func(z, rois, pool_size):
             # type: (torch.Tensor, torch.Tensor, int) -> torch.Tensor
             return ops.deform_conv(z, offset, weight, stride=stride, pad=pad, dilation=dilation)
 
