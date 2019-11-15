@@ -477,13 +477,15 @@ class DeformConvTester(OpTester, unittest.TestCase):
 
         def func(z, off, wei):
             return ops.deform_conv(z, off, wei, stride=stride, pad=pad, dilation=dilation)
+
         gradcheck(func, (x, offset, weight), nondet_tol=1e-5)
 
         @torch.jit.script
-        def script_func(z, off, wei):
-            # type: (torch.Tensor, torch.Tensor, torch.Tensor) -> torch.Tensor
-            return ops.deform_conv(z, off, wei, stride=(stride_h, stride_w), pad=(pad_h, pad_w), dilation=(dil_h, dil_w))[0]
-        gradcheck(script_func, (x, offset, weight), nondet_tol=1e-5)
+        def script_func_total(x_arg, offset_arg, weight_arg, stride_arg, pad_arg, dilation_arg):
+            # type: (torch.Tensor, torch.Tensor, torch.Tensor, Tuple[int, int], Tuple[int, int], Tuple[int, int]) -> torch.Tensor
+            return ops.deform_conv(x_arg, offset_arg, weight_arg, stride=stride_arg, pad=pad_arg, dilation=dilation_arg)[0]
+
+        gradcheck(lambda z, off, wei: script_func(z, off, wei, stride, pad, dilation), (x, offset, weight), nondet_tol=1e-5)
 
 
 if __name__ == '__main__':
