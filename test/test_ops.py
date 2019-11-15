@@ -371,7 +371,7 @@ class NMSTester(unittest.TestCase):
             self.assertTrue(torch.allclose(r_cpu, r_cuda.cpu()), err_msg.format(iou))
 
 
-class DeformConvTester(unittest.TestCase):
+class DeformConvTester(OpTester, unittest.TestCase):
     def expected_fn(self, x, offsets, weights, stride=1, pad=0, dilation=1):
         stride_h, stride_w = _pair(stride)
         pad_h, pad_w = _pair(pad)
