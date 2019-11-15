@@ -649,8 +649,8 @@ at::Tensor deform_conv_backward_parameters_cuda(
   int dil_h = dilation.first;
   int dil_w = dilation.second;
 
-  long out_w = grad_out.size(2);
-  long out_h = grad_out.size(3);
+  long out_h = grad_out.size(2);
+  long out_w = grad_out.size(3);
 
   auto grad_weight = at::zeros_like(weight);;
   auto columns = at::zeros({n_in_channels * weight_w * weight_h, im2col_block * out_h * out_w}, input.options());
