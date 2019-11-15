@@ -10,7 +10,7 @@
 #include "ROIAlign.h"
 #include "ROIPool.h"
 #include "nms.h"
-#include "deform_conv.h"
+#include "DeformConv.h"
 
 // If we are in a Windows environment, we need to define
 // initialization functions for the _custom_ops extension
