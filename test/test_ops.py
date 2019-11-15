@@ -429,7 +429,7 @@ class DeformConvTester(OpTester, unittest.TestCase):
 
     def _test_backward(self, device, contiguous):
         n_offset_grps = 2
-        x = torch.rand(1, 2, 5, 5, device=device, dtype=self.dtype)
+        x = torch.rand(1, 2, 5, 5, requires_grad=True, device=device, dtype=self.dtype)
         offset = torch.randn(1, n_offset_grps * 8, 4, 4, device=device, dtype=self.dtype)
         weight = torch.randn(2, 1, 2, 2, device=device, dtype=self.dtype)
 
