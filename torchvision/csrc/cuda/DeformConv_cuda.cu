@@ -427,8 +427,8 @@ __device__ scalar_t get_coordinate_weight(const scalar_t *im_data, const int hei
 
   bool valid_y_l = 0 <= y_l && y_l < height;
   bool valid_y_h = 0 <= y_h && y_h < height;
-  bool valid_x_l = 0 <= y_l && y_l < width;
-  bool valid_x_h = 0 <= y_h && y_h < width;
+  bool valid_x_l = 0 <= x_l && x_l < width;
+  bool valid_x_h = 0 <= x_h && x_h < width;
 
   scalar_t zero = 0;
   scalar_t v_yx = (valid_y_l && valid_x_l) ? im_data[y_l * width + x_l] : zero;
