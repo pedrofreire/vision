@@ -10,6 +10,7 @@
 #include "ROIAlign.h"
 #include "ROIPool.h"
 #include "nms.h"
+#include "DeformConv.h"
 
 // If we are in a Windows environment, we need to define
 // initialization functions for the _custom_ops extension
@@ -45,4 +46,5 @@ static auto registry =
         .op("torchvision::roi_pool", &roi_pool)
         .op("torchvision::ps_roi_align", &ps_roi_align)
         .op("torchvision::ps_roi_pool", &ps_roi_pool)
+        .op("torchvision::deform_conv", &deform_conv)
         .op("torchvision::_cuda_version", &_cuda_version);
