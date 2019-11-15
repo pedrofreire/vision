@@ -674,7 +674,7 @@ at::Tensor deform_conv_backward_parameters_cuda(
   for (int elt = 0; elt < batch_sz / im2col_block; elt++) {
     deformable_im2col(input[elt], offset[elt], n_in_channels, in_h,
                       in_w, weight_h, weight_w, pad_h, pad_w, stride_h, stride_w, dil_h,
-                      dil_w, im2col_block, out_h, out_w, n_offset_grps, columns);
+                      dil_w, out_h, out_w, im2col_block, n_offset_grps, columns);
 
     columns = columns.view({n_weight_grps, columns.size(0) / n_weight_grps, columns.size(1)});
     for (int g = 0; g < n_weight_grps; g++) {
