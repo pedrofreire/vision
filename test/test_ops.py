@@ -373,7 +373,7 @@ class NMSTester(unittest.TestCase):
 
 
 class DeformConvTester(OpTester, unittest.TestCase):
-    def expected_fn(self, x, offsets, weights, stride=1, pad=0, dilation=1):
+    def expected_fn(self, x, offsets, weights, *args, stride=1, pad=0, dilation=1):
         stride_h, stride_w = _pair(stride)
         pad_h, pad_w = _pair(pad)
         dil_h, dil_w = _pair(dilation)
@@ -382,16 +382,15 @@ class DeformConvTester(OpTester, unittest.TestCase):
         n_batches, n_in_channels, in_h, in_w = x.shape
         n_out_channels = weights.shape[0]
 
-        kernel_h = (weights_h - 1) * dil_h + 1
-        kernel_w = (weights_w - 1) * dil_w + 1
-        out_h = (in_h + 2*pad_h - kernel_h) // stride_h + 1
-        out_w = (in_w + 2*pad_w - kernel_w) // stride_w + 1
+        out_h = (in_h + 2 * pad_h - (dil_h * (weights_h - 1) + 1)) // stride_h + 1
+        out_w = (in_w + 2 * pad_w - (dil_w * (weights_w - 1) + 1)) // stride_w + 1
 
         n_offset_grps = offsets.shape[1] // (2 * weights_h * weights_w)
-        c_per_offset_grp = n_in_channels // n_offset_grps
+        in_c_per_offset_grp = n_in_channels // n_offset_grps
 
         n_weight_grps = n_in_channels // weights.shape[1]
-        c_per_weight_grp = weights.shape[1]
+        in_c_per_weight_grp = weights.shape[1]
+        out_c_per_weight_grp = weights.shape[0] // n_out_channels
 
         out = torch.zeros(n_batches, n_out_channels, out_h, out_w, device=x.device, dtype=x.dtype)
         for b in range(n_batches):
@@ -400,22 +399,38 @@ class DeformConvTester(OpTester, unittest.TestCase):
                     for j in range(out_w):
                         for di in range(weights_h):
                             for dj in range(weights_w):
-                                for c in range(c_per_weight_grp):
-                                    weight_grp = c_out // c_per_weight_grp
-                                    c_in = weight_grp * c_per_weight_grp + c
-                                    offset_grp = c_in // c_per_offset_grp
+                                for c in range(in_c_per_weight_grp):
+                                    weight_grp = c_out // out_c_per_weight_grp
+                                    c_in = weight_grp * in_c_per_weight_grp + c
+
+                                    offset_grp = c_in // in_c_per_offset_grp
                                     offset_idx = 2 * (offset_grp * (weights_h * weights_w) + di * weights_w + dj)
+
                                     pi = stride_h * i - pad_h + dil_h * di + offsets[b, offset_idx, i, j]
                                     pj = stride_w * j - pad_w + dil_w * dj + offsets[b, offset_idx + 1, i, j]
-                                    val = bilinear_interpolate(x[b, c_in, :, :], pi, pj)
-                                    out[b, c_out, i, j] += weights[c_out, c, di, dj] * val
+
+                                    out[b, c_out, i, j] += weights[c_out, c, di, dj] * bilinear_interpolate(x[b, c_in, :, :], pi, pj)
         return out
 
     def _test_forward(self, device, contiguous):
         n_weight_grps = 2
         n_offset_grps = 3
-        x = torch.rand(1, 6, 5, 4, device=device, dtype=self.dtype)
-        offset = torch.randn(1, n_offset_grps * 8, 4, 3, device=device, dtype=self.dtype)
+
+        stride = (2, 1)
+        pad = (1, 0)
+        dilation = (2, 1)
+
+        stride_h, stride_w = stride
+        pad_h, pad_w = pad
+        dil_h, dil_w = dilation
+        weight_h, weight_w = (3, 2)
+        in_h, in_w = (5, 4)
+
+        out_h = (in_h + 2 * pad_h - (dil_h * (weight_h - 1) + 1)) // stride_h + 1
+        out_w = (in_w + 2 * pad_w - (dil_w * (weight_w - 1) + 1)) // stride_w + 1
+
+        x = torch.rand(1, 6, in_h, in_w, device=device, dtype=self.dtype)
+        offset = torch.randn(1, n_offset_grps * 8, out_h, out_w, device=device, dtype=self.dtype)
         weight = torch.randn(2, 6 // n_weight_grps, 2, 2, device=device, dtype=self.dtype)
 
         if not contiguous:
@@ -423,8 +438,8 @@ class DeformConvTester(OpTester, unittest.TestCase):
             offset = offset.permute(1, 3, 0, 2).contiguous().permute(2, 0, 3, 1)
             weight = weight.permute(3, 2, 0, 1).contiguous().permute(2, 3, 1, 0)
 
-        res = ops.deform_conv(x, offset, weight)
-        expected = self.expected_fn(x, offset, weight)
+        res = ops.deform_conv(x, offset, weight, stride=stride, pad=pad, dilation=dilation)
+        expected = self.expected_fn(x, offset, weight, stride=stride, pad=pad, dilation=dilation)
 
         self.assertTrue(torch.allclose(res, expected), '\nx:\n{}\nres:\n{}\nexp:\n{}'.format(x, res, expected))
 
