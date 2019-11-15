@@ -446,7 +446,7 @@ class DeformConvTester(OpTester, unittest.TestCase):
     def _test_forward(self, device, contiguous):
         x, offset, weight, stride, pad, dilation = self.get_fn_args(device, contiguous)
 
-        res = ops.deform_conv(x, offset, weight, stride=stride, pad=pad, dilation=dilation)
+        res = ops.DeformConv(stride=stride, pad=pad, dilation=dilation)(x, offset, weight)
         expected = self.expected_fn(x, offset, weight, stride=stride, pad=pad, dilation=dilation)
 
         self.assertTrue(torch.allclose(res, expected), '\nres:\n{}\nexpected:\n{}'.format(x, res, expected))
@@ -456,7 +456,13 @@ class DeformConvTester(OpTester, unittest.TestCase):
 
         def func(z):
             return ops.deform_conv(z, offset, weight, stride=stride, pad=pad, dilation=dilation)
-        gradcheck(func, (x,), nondet_tol=1e-5)
+
+        @torch.jit.script
+        def script_func(input, rois, pool_size):
+            # type: (torch.Tensor, torch.Tensor, int) -> torch.Tensor
+            return ops.deform_conv(z, offset, weight, stride=stride, pad=pad, dilation=dilation)
+
+        gradcheck(script_func, (x, offset, weight), nondet_tol=1e-5)
 
 
 if __name__ == '__main__':

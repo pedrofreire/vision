@@ -47,7 +47,7 @@ def deform_conv(input, offset, weight, *args, stride=1, pad=0, dilation=1, n_par
                 *dilation,
                 n_weight_grps,
                 n_offset_grps,
-                im2col_step)
+                n_parallel_imgs)
 
 
 class DeformConv(nn.Module):
