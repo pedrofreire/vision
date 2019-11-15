@@ -452,28 +452,7 @@ class DeformConvTester(OpTester, unittest.TestCase):
         self.assertTrue(torch.allclose(res, expected), '\nres:\n{}\nexpected:\n{}'.format(x, res, expected))
 
     def _test_backward(self, device, contiguous):
-        batch_sz = 1
-        n_in_channels = 1
-        n_out_channels = 1
-        n_weight_grps = 1
-        n_offset_grps = 1
-
-        stride = (1, 1)
-        pad = (0, 0)
-        dilation = (1, 1)
-
-        stride_h, stride_w = stride
-        pad_h, pad_w = pad
-        dil_h, dil_w = dilation
-        weight_h, weight_w = (2, 2)
-        in_h, in_w = (2, 2)
-
-        out_h = (in_h + 2 * pad_h - (dil_h * (weight_h - 1) + 1)) // stride_h + 1
-        out_w = (in_w + 2 * pad_w - (dil_w * (weight_w - 1) + 1)) // stride_w + 1
-
-        x = torch.rand(batch_sz, n_in_channels, in_h, in_w, device=device, dtype=self.dtype, requires_grad=True)
-        offset = torch.randn(batch_sz, n_offset_grps * 2 * weight_h * weight_w, out_h, out_w, device=device, dtype=self.dtype, requires_grad=True)
-        weight = torch.randn(n_out_channels, n_in_channels // n_weight_grps, weight_h, weight_w, device=device, dtype=self.dtype, requires_grad=True)
+        x, offset, weight, stride, pad, dilation = self.get_fn_args(device, contiguous)
 
         def func(z, off, wei):
             return ops.deform_conv(z, off, wei, stride=stride, pad=pad, dilation=dilation)
