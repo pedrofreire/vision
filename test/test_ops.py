@@ -374,7 +374,7 @@ class NMSTester(unittest.TestCase):
 
 
 class DeformConvTester(OpTester, unittest.TestCase):
-    def expected_fn(self, x, weights, offsets, *args, stride=1, padding=0, dilation=1):
+    def expected_fn(self, x, weights, offsets, bias, stride=1, padding=0, dilation=1):
         stride_h, stride_w = _pair(stride)
         pad_h, pad_w = _pair(padding)
         dil_h, dil_w = _pair(dilation)
@@ -412,6 +412,7 @@ class DeformConvTester(OpTester, unittest.TestCase):
 
                                     out[b, c_out, i, j] += (weights[c_out, c, di, dj] *
                                                             bilinear_interpolate(x[b, c_in, :, :], pi, pj))
+        out += bias.view(1, n_out_channels, 1, 1)
         return out
 
     def get_fn_args(self, device, contiguous):
@@ -450,7 +451,7 @@ class DeformConvTester(OpTester, unittest.TestCase):
         return x, weight, offset, stride, pad, dilation
 
     def _test_forward(self, device, contiguous):
-        x, weight, offset, stride, padding, dilation = self.get_fn_args(device, contiguous)
+        x, _, _, stride, padding, dilation = self.get_fn_args(device, contiguous)
 
         in_channels = 6
         out_channels = 2
@@ -460,8 +461,14 @@ class DeformConvTester(OpTester, unittest.TestCase):
         groups = 2
         offset_groups = 3
 
-        res = ops.deform_conv2d(x, weight, offset, bias=None, stride=stride, padding=padding, dilation=dilation)
-        expected = self.expected_fn(x, weight, offset, stride=stride, padding=padding, dilation=dilation)
+        layer = ops.DeformConv2d(in_channels, out_channels, kernel_size, stride=stride, padding=padding,
+                                 dilation=dilation, groups=groups, offset_groups=offset_groups)
+        res = layer(x)
+
+        weight = layer.weight.data.to(device=x.device, dtype=x.dtype)
+        offset = layer.offset_conv.to(device=x.device, dtype=x.dtype)(x)
+        bias = layer.bias.data.to(device=x.device, dtype=x.dtype)
+        expected = self.expected_fn(x, weight, offset, bias, stride=stride, padding=padding, dilation=dilation)
 
         self.assertTrue(torch.allclose(res, expected), '\nres:\n{}\nexpected:\n{}'.format(res, expected))
 

@@ -9,7 +9,7 @@ from torch.jit.annotations import Tuple
 
 
 def deform_conv2d(input, weight, offset, bias=None, stride=(1, 1), padding=(0, 0), dilation=(1, 1)):
-    # type: (Tensor, Tensor, Tensor, Tuple[int, int], Tuple[int, int], Tuple[int, int]) -> Tensor
+    # type: (Tensor, Tensor, Tensor, Optional[Tensor], Tuple[int, int], Tuple[int, int], Tuple[int, int]) -> Tensor
     """
     Performs Deformable Convolution, described in Deformable Convolutional Networks
 
