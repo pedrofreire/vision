@@ -679,7 +679,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> DeformConv2d_backward
   const int n_parallel_imgs = get_greatest_divisor_below_bound(batch_sz, kMaxParallelImgs);
 
   auto grad_input_and_offset = deform_conv_backward_input_cuda(
-      input, offset, weight, grad_out,
+      input, weight, offset, grad_out,
       stride, pad, dilation,
       n_weight_grps, n_offset_grps, n_parallel_imgs);
 
@@ -687,7 +687,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> DeformConv2d_backward
   auto grad_offset = std::get<1>(grad_input_and_offset);
 
   auto grad_weight = deform_conv_backward_parameters_cuda(
-      input, offset, weight, grad_out,
+      input, weight, offset, grad_out,
       stride, pad, dilation,
       n_weight_grps, n_offset_grps, n_parallel_imgs);
 
