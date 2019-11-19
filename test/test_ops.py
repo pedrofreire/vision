@@ -1,14 +1,14 @@
 from __future__ import division
 import math
-from typing import Tuple
 import unittest
 
 import numpy as np
 
 import torch
-from torch.autograd import gradcheck
-from torch.nn.modules.utils import _pair
 from torch import Tensor
+from torch.autograd import gradcheck
+from torch.jit.annotations import Tuple
+from torch.nn.modules.utils import _pair
 from torchvision import ops
 
 
@@ -374,9 +374,9 @@ class NMSTester(unittest.TestCase):
 
 
 class DeformConvTester(OpTester, unittest.TestCase):
-    def expected_fn(self, x, offsets, weights, *args, stride=1, pad=0, dilation=1):
+    def expected_fn(self, x, weights, offsets, *args, stride=1, padding=0, dilation=1):
         stride_h, stride_w = _pair(stride)
-        pad_h, pad_w = _pair(pad)
+        pad_h, pad_w = _pair(padding)
         dil_h, dil_w = _pair(dilation)
         weights_h, weights_w = weights.shape[-2:]
 
@@ -450,27 +450,35 @@ class DeformConvTester(OpTester, unittest.TestCase):
         return x, offset, weight, stride, pad, dilation
 
     def _test_forward(self, device, contiguous):
-        x, offset, weight, stride, pad, dilation = self.get_fn_args(device, contiguous)
+        x, offset, weight, stride, padding, dilation = self.get_fn_args(device, contiguous)
 
-        res = ops.DeformConv(stride=stride, pad=pad, dilation=dilation)(x, offset, weight)
-        expected = self.expected_fn(x, offset, weight, stride=stride, pad=pad, dilation=dilation)
+        in_channels = 6
+        out_channels = 2
+
+        kernel_size = (3, 2)
+        input_size = (5, 4)
+
+
+        res = ops.DeformConv2d(in_channels, out_channels, kernel_size, input_size,
+                               stride=stride, padding=padding, dilation=dilation)(x)
+        expected = self.expected_fn(x, weight, offset, stride=stride, padding=padding, dilation=dilation)
 
         self.assertTrue(torch.allclose(res, expected), '\nres:\n{}\nexpected:\n{}'.format(x, res, expected))
 
     def _test_backward(self, device, contiguous):
-        x, offset, weight, stride, pad, dilation = self.get_fn_args(device, contiguous)
+        x, offset, weight, stride, padding, dilation = self.get_fn_args(device, contiguous)
 
         def func(x_, offset_, weight_):
-            return ops.deform_conv(x_, offset_, weight_, stride=stride, pad=pad, dilation=dilation)
+            return ops.deform_conv2d(x_, offset_, weight_, stride=stride, padding=padding, dilation=dilation)
 
         gradcheck(func, (x, offset, weight), nondet_tol=1e-5)
 
         @torch.jit.script
         def script_func(x_, offset_, weight_, stride_, pad_, dilation_):
             # type: (Tensor, Tensor, Tensor, Tuple[int, int], Tuple[int, int], Tuple[int, int]) -> Tensor
-            return ops.deform_conv(x_, offset_, weight_, stride=stride_, pad=pad_, dilation=dilation_)
+            return ops.deform_conv2d(x_, weight_, offset_, stride=stride_, padding=pad_, dilation=dilation_)
 
-        gradcheck(lambda z, off, wei: script_func(z, off, wei, stride, pad, dilation),
+        gradcheck(lambda z, off, wei: script_func(z, off, wei, stride, padding, dilation),
                   (x, offset, weight), nondet_tol=1e-5)
 
 

@@ -79,6 +79,8 @@ using namespace at;
 const int CUDA_NUM_THREADS = 1024;
 const int kMaxGridNum = 65535;
 
+const int kMaxParallelImgs = 32;
+
 inline int GET_BLOCKS(const int N)
 {
   return std::min(kMaxGridNum, (N + CUDA_NUM_THREADS - 1) / CUDA_NUM_THREADS);
@@ -193,8 +195,8 @@ void deformable_im2col(
   }
 }
 
-void shape_check(at::Tensor input, at::Tensor offset,
-                 at::Tensor weight, std::pair<int, int> stride, std::pair<int, int> pad,
+void shape_check(at::Tensor input, at::Tensor weight,
+                 at::Tensor offset, std::pair<int, int> stride, std::pair<int, int> pad,
                  std::pair<int, int> dilation, int n_weight_grps, int n_offset_grps) {
 
   int in_h = input.size(2);
@@ -237,18 +239,26 @@ void shape_check(at::Tensor input, at::Tensor offset,
       "Calculated output size too small - out_h: ", out_h, " out_w: ", out_w);
 }
 
+int get_greatest_divisor_below_bound(int n, int bound) {
+  for(int k = bound; k > 1; --k) {
+    if(n % k == 0) {
+      return k;
+    }
+  }
+  return 1;
+}
 
-at::Tensor DCN_forward_cuda(
+at::Tensor DeformConv2d_forward_cuda(
     const at::Tensor& input_param,
-    const at::Tensor& offset_param,
     const at::Tensor& weight_param,
+    const at::Tensor& offset_param,
     std::pair<int, int> stride,
     std::pair<int, int> pad,
     std::pair<int, int> dilation,
-    int n_weight_grps, int n_offset_grps, int n_parallel_imgs) {
+    int n_weight_grps, int n_offset_grps) {
   at::Tensor input = input_param;
-  at::Tensor offset = offset_param;
   at::Tensor weight = weight_param;
+  at::Tensor offset = offset_param;
 
   TORCH_CHECK(input.ndimension() == 4);
   TORCH_CHECK(offset.ndimension() == 4);
@@ -265,7 +275,7 @@ at::Tensor DCN_forward_cuda(
   int in_h = input.size(2);
   int in_w = input.size(3);
 
-  n_parallel_imgs = std::min(batch_sz, n_parallel_imgs);
+  int n_parallel_imgs = get_greatest_divisor_below_bound(batch_sz, kMaxParallelImgs);
 
   int out_channels = weight.size(0);
   int weight_h = weight.size(2);
@@ -284,9 +294,6 @@ at::Tensor DCN_forward_cuda(
   int ker_w = dil_w * (weight_w - 1) + 1;
   int out_h = ((in_h + 2*pad_h - ker_h) / stride_h) + 1;
   int out_w = ((in_w + 2*pad_w - ker_w) / stride_w) + 1;
-
-
-  TORCH_CHECK(batch_sz % n_parallel_imgs == 0);
 
   TORCH_CHECK(weight_h > 0 && weight_w > 0, "weight_h: ", weight_w, " weight_w: ", weight_h);
   TORCH_CHECK(stride_h > 0 && stride_w > 0, "stride_h: ", stride_w, " stride_w: ", stride_h);
@@ -542,7 +549,7 @@ void compute_grad_offset(
 
 
 std::tuple<at::Tensor, at::Tensor> deform_conv_backward_input_cuda(
-    at::Tensor input, at::Tensor offset, at::Tensor weight,
+    at::Tensor input, at::Tensor weight, at::Tensor offset,
     at::Tensor grad_out,
     std::pair<int, int> stride,
     std::pair<int, int> pad,
@@ -625,7 +632,7 @@ std::tuple<at::Tensor, at::Tensor> deform_conv_backward_input_cuda(
 
 
 at::Tensor deform_conv_backward_parameters_cuda(
-    at::Tensor input, at::Tensor offset, at::Tensor weight,
+    at::Tensor input, at::Tensor weight, at::Tensor offset,
     at::Tensor grad_out,
     std::pair<int, int> stride,
     std::pair<int, int> pad,
@@ -699,22 +706,23 @@ at::Tensor deform_conv_backward_parameters_cuda(
 }
 
 
-std::tuple<at::Tensor, at::Tensor, at::Tensor> DCN_backward_cuda(
+std::tuple<at::Tensor, at::Tensor, at::Tensor> DeformConv2d_backward_cuda(
     const at::Tensor& grad_out,
     const at::Tensor& input,
-    const at::Tensor& offset,
     const at::Tensor& weight,
+    const at::Tensor& offset,
+    const at::Tensor& bias,
     std::pair<int, int> stride,
     std::pair<int, int> pad,
     std::pair<int, int> dilation,
-    int groups,
-    int deformable_groups,
-    int n_parallel_imgs) {
+    int n_weight_grps, int n_offset_grps) {
+  const int batch_sz = input.size(0);
+  const int n_parallel_imgs = get_greatest_divisor_below_bound(batch_sz, kMaxParallelImgs);
 
   auto grad_input_and_offset = deform_conv_backward_input_cuda(
       input, offset, weight, grad_out,
       stride, pad, dilation,
-      groups, deformable_groups, n_parallel_imgs);
+      n_weight_grps, n_offset_grps, n_parallel_imgs);
 
   auto grad_input = std::get<0>(grad_input_and_offset);
   auto grad_offset = std::get<1>(grad_input_and_offset);
@@ -722,7 +730,9 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> DCN_backward_cuda(
   auto grad_weight = deform_conv_backward_parameters_cuda(
       input, offset, weight, grad_out,
       stride, pad, dilation,
-      groups, deformable_groups, n_parallel_imgs);
+      n_weight_grps, n_offset_grps, n_parallel_imgs);
 
-  return {grad_input, grad_offset, grad_weight};
+  auto grad_bias = at::ones_like(bias);
+
+  return {grad_input, grad_offset, grad_weight, grad_bias};
 }
