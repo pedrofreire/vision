@@ -107,7 +107,8 @@ class DeformConv2d(nn.Module):
     def forward(self, input):
         offset = self.offset_conv.to(device=input.device, dtype=input.dtype)(input)
         weight = self.weight.to(device=input.device, dtype=input.dtype)
-        bias = self.bias.to(device=input.device, dtype=input.dtype)
+        bias = self.bias.to(device=input.device, dtype=input.dtype) if self.bias is not None else self.bias
+
         return deform_conv2d(input, weight, offset, bias, stride=self.stride, padding=self.padding,
                              dilation=self.dilation)
 
