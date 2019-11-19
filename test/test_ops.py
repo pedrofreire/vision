@@ -460,7 +460,7 @@ class DeformConvTester(OpTester, unittest.TestCase):
         groups = 2
         offset_groups = 3
 
-        res = ops.deform_conv2d(x, weight, offset, bias=None, stride=stride, padding=padding, dilation=dilation, groups=groups, offset_groups=offset_groups)
+        res = ops.deform_conv2d(x, weight, offset, bias=None, stride=stride, padding=padding, dilation=dilation)
         expected = self.expected_fn(x, weight, offset, stride=stride, padding=padding, dilation=dilation)
 
         self.assertTrue(torch.allclose(res, expected), '\nres:\n{}\nexpected:\n{}'.format(res, expected))
