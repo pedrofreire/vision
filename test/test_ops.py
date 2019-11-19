@@ -461,7 +461,7 @@ class DeformConvTester(OpTester, unittest.TestCase):
         offset_groups = 3
 
         def_conv2d = ops.DeformConv2d(in_channels, out_channels, kernel_size, stride=stride,
-                         padding=padding, dilation=dilation, groups=groups, offset_groups=offset_groups, bias=False)(x)
+                         padding=padding, dilation=dilation, groups=groups, offset_groups=offset_groups, bias=False)
         res = def_conv2d(x)
 
         weight = def_conv2d.weight.to(device=input.device, dtype=input.dtype)
