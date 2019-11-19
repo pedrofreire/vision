@@ -15,34 +15,6 @@ at::Tensor DeformConv2d_forward(
     const std::pair<int, int>& padding,
     const std::pair<int, int>& dilation,
     const int groups, const int offset_groups) {
-
-  int batch_sz = input.size(0);
-  int in_h = input.size(2);
-  int in_w = input.size(3);
-
-  int weight_h = weight.size(2);
-  int weight_w = weight.size(3);
-
-  int out_channels = weight.size(0);
-
-  int stride_h = stride.first;
-  int stride_w = stride.second;
-
-  int pad_h = padding.first;
-  int pad_w = padding.second;
-
-  int dil_h = dilation.first;
-  int dil_w = dilation.second;
-
-  int ker_h = dil_h * (weight_h - 1) + 1;
-  int ker_w = dil_w * (weight_w - 1) + 1;
-  int out_h = ((in_h + 2*pad_h - ker_h) / stride_h) + 1;
-  int out_w = ((in_w + 2*pad_w - ker_w) / stride_w) + 1;
-
-  auto out = at::zeros({batch_sz, out_channels, out_h, out_w}, input.options());
-
-  return out;
-
   if (input.type().is_cuda()) {
 #ifdef WITH_CUDA
     return DeformConv2d_forward_cuda(input.contiguous(), weight.contiguous(), offset.contiguous(),
@@ -66,15 +38,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> DeformConv2d_backward
     const std::pair<int, int>& dilation,
     const int groups,
     const int offset_groups) {
-
-  return {
-    at::zeros_like(input),
-    at::zeros_like(weight),
-    at::zeros_like(offset),
-    at::zeros_like(bias),
-  };
-
-
   if (grad.type().is_cuda()) {
 #ifdef WITH_CUDA
     return DeformConv2d_backward_cuda(grad.contiguous(), input.contiguous(), weight.contiguous(), offset.contiguous(),
