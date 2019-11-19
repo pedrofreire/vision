@@ -651,8 +651,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> DeformConv2d_backward
       stride, pad, dilation,
       n_weight_grps, n_offset_grps, n_parallel_imgs);
 
-  auto value = grad_out.sum({0, 2, 3});
-  auto grad_bias = at::ones_like(bias) * value;
+  auto grad_bias = at::ones_like(bias) * grad_out.sum({0, 2, 3});
 
   return {grad_input, grad_weight, grad_offset, grad_bias};
 }
