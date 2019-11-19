@@ -457,12 +457,9 @@ class DeformConvTester(OpTester, unittest.TestCase):
 
         in_channels = 6
         out_channels = 2
-
         kernel_size = (3, 2)
-
         groups = 2
         offset_groups = 3
-
         layer = ops.DeformConv2d(in_channels, out_channels, kernel_size, stride=stride, padding=padding,
                                  dilation=dilation, groups=groups, offset_groups=offset_groups)
         res = layer(x)
@@ -480,15 +477,15 @@ class DeformConvTester(OpTester, unittest.TestCase):
         def func(x_, weight_, offset_):
             return ops.deform_conv2d(x_, weight_, offset_, stride=stride, padding=padding, dilation=dilation)
 
-        gradcheck(func, (x, weight, offset), nondet_tol=1e-5)
+        gradcheck(func, (x, weight, offset, bias), nondet_tol=1e-5)
 
         @torch.jit.script
-        def script_func(x_, weight_, offset_, stride_, pad_, dilation_):
-            # type: (Tensor, Tensor, Tensor, Tuple[int, int], Tuple[int, int], Tuple[int, int]) -> Tensor
-            return ops.deform_conv2d(x_, weight_, offset_, stride=stride_, padding=pad_, dilation=dilation_)
+        def script_func(x_, weight_, offset_, bias_ stride_, pad_, dilation_):
+            # type: (Tensor, Tensor, Tensor, Tensor, Tuple[int, int], Tuple[int, int], Tuple[int, int]) -> Tensor
+            return ops.deform_conv2d(x_, weight_, offset_, bias_, stride=stride_, padding=pad_, dilation=dilation_)
 
-        gradcheck(lambda z, wei, off: script_func(z, wei, off, stride, padding, dilation),
-                  (x, weight, offset), nondet_tol=1e-5)
+        gradcheck(lambda z, wei, off, bi: script_func(z, wei, off, bi, stride, padding, dilation),
+                  (x, weight, offset, bias), nondet_tol=1e-5)
 
 
 if __name__ == '__main__':
