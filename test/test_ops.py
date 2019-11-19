@@ -456,12 +456,11 @@ class DeformConvTester(OpTester, unittest.TestCase):
         out_channels = 2
 
         kernel_size = (3, 2)
-        input_size = (5, 4)
 
         groups = 2
         offset_groups = 3
 
-        res = ops.DeformConv2d(in_channels, out_channels, kernel_size, input_size, stride=stride,
+        res = ops.DeformConv2d(in_channels, out_channels, kernel_size, stride=stride,
                     padding=padding, dilation=dilation, groups=groups, offset_groups=offset_groups)(x)
         expected = self.expected_fn(x, weight, offset, stride=stride, padding=padding, dilation=dilation)
 

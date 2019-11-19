@@ -50,7 +50,7 @@ def deform_conv2d(input, weight, offset, bias=None, stride=(1, 1), padding=(0, 0
         bias,
         stride_h, stride_w,
         pad_h, pad_w,
-        weights_h, weights_w,
+        dil_h, dil_w,
         n_weight_grps,
         n_offset_grps)
 
@@ -59,7 +59,7 @@ class DeformConv2d(nn.Module):
     """
     See deform_conv
     """
-    def __init__(self, in_channels, out_channels, kernel_size, input_size, stride=1,
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1,
                  padding=0, dilation=1, groups=1, offset_groups=1,
                  bias=True, padding_mode='zeros'):
         super(DeformConv2d, self).__init__()
@@ -74,7 +74,6 @@ class DeformConv2d(nn.Module):
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = _pair(kernel_size)
-        self.input_size = _pair(input_size)
         self.stride = _pair(stride)
         self.padding = _pair(padding)
         self.dilation = _pair(dilation)
