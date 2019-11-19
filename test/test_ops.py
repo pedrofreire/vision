@@ -478,7 +478,7 @@ class DeformConvTester(OpTester, unittest.TestCase):
             # type: (Tensor, Tensor, Tensor, Tuple[int, int], Tuple[int, int], Tuple[int, int]) -> Tensor
             return ops.deform_conv2d(x_, weight_, offset_, stride=stride_, padding=pad_, dilation=dilation_)
 
-        gradcheck(lambda z, off, wei: script_func(z, off, wei, stride, padding, dilation),
+        gradcheck(lambda z, wei, off: script_func(z, wei, off, stride, padding, dilation),
                   (x, weight, offset), nondet_tol=1e-5)
 
 
