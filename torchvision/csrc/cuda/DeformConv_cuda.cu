@@ -252,7 +252,7 @@ at::Tensor DeformConv2d_forward_cuda(
     const at::Tensor& input_param,
     const at::Tensor& weight_param,
     const at::Tensor& offset_param,
-    const at::Tensor& bias_param,
+    const at::Tensor& bias,
     std::pair<int, int> stride,
     std::pair<int, int> pad,
     std::pair<int, int> dilation,
