@@ -443,7 +443,7 @@ class DeformConvTester(OpTester, unittest.TestCase):
         weight = torch.randn(n_out_channels, n_in_channels // n_weight_grps, weight_h, weight_w,
                              device=device, dtype=self.dtype, requires_grad=True)
 
-        bias = torch.randn(n_out_channels)
+        bias = torch.randn(n_out_channels, device=device, dtype=self.dtype, requires_grad=True)
 
         if not contiguous:
             x = x.permute(0, 1, 3, 2).contiguous().permute(0, 1, 3, 2)
