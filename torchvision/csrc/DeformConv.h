@@ -28,8 +28,8 @@ at::Tensor DeformConv2d_forward(
   int stride_h = stride.first;
   int stride_w = stride.second;
 
-  int pad_h = pad.first;
-  int pad_w = pad.second;
+  int pad_h = padding.first;
+  int pad_w = padding.second;
 
   int dil_h = dilation.first;
   int dil_w = dilation.second;
