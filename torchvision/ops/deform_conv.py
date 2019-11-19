@@ -79,11 +79,17 @@ class DeformConv2d(nn.Module):
         self.padding = _pair(padding)
         self.dilation = _pair(dilation)
 
-        self.weight = Parameter(torch.empty(in_channels, out_channels // groups, kernel_size[0], kernel_size[1]))
+        self.weight = Parameter(torch.empty(out_channels, in_channels // groups, kernel_size[0], kernel_size[1]))
 
-        out_height, out_width = self.get_output_size()
-        self.offset = Parameter(torch.empty(2 * offset_groups * kernel_size[0] * kernel_size[1],
-                                            out_height, out_width))
+        self.offset_conv = nn.Conv2d(
+            self.in_channels,
+            offset_groups * 2 * self.kernel_size[0] * self.kernel_size[1],
+            kernel_size=self.kernel_size,
+            stride=self.stride,
+            padding=self.padding,
+            dilation=self.dilation)
+
+        print('weight.shape: ', self.weight.shape)
 
         if bias:
             self.bias = Parameter(torch.empty(out_channels))
@@ -94,25 +100,18 @@ class DeformConv2d(nn.Module):
 
     def reset_parameters(self):
         init.kaiming_uniform_(self.weight, a=math.sqrt(5))
-        init.zeros_(self.offset)
+        init.zeros_(self.offset_conv.weight)
+        init.zeros_(self.offset_conv.bias)
         if self.bias is not None:
             fan_in, _ = init._calculate_fan_in_and_fan_out(self.weight)
             bound = 1 / math.sqrt(fan_in)
             init.uniform_(self.bias, -bound, bound)
 
     def forward(self, input):
-        return deform_conv2d(input, self.weight, self.offset, self.bias, stride=self.stride, padding=self.padding,
+        offset = self.offset_conv.to(dtype=input.dtype)(input)
+        print('offset.shape: ', offset.shape)
+        return deform_conv2d(input, self.weight, offset, self.bias, stride=self.stride, padding=self.padding,
                              dilation=self.dilation)
-
-    def get_output_size(self):
-        stride_h, stride_w = self.stride
-        pad_h, pad_w = self.padding
-        dil_h, dil_w = self.dilation
-        kernel_h, kernel_w = self.kernel_size
-        in_h, in_w = self.input_size
-        out_h = (in_h + 2 * pad_h - (dil_h * (kernel_h - 1) + 1)) // stride_h + 1
-        out_w = (in_w + 2 * pad_w - (dil_w * (kernel_w - 1) + 1)) // stride_w + 1
-        return out_h, out_w
 
     def __repr__(self):
         tmpstr = self.__class__.__name__ + '('

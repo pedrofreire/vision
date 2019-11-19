@@ -447,10 +447,10 @@ class DeformConvTester(OpTester, unittest.TestCase):
             offset = offset.permute(1, 3, 0, 2).contiguous().permute(2, 0, 3, 1)
             weight = weight.permute(3, 2, 0, 1).contiguous().permute(2, 3, 1, 0)
 
-        return x, offset, weight, stride, pad, dilation
+        return x, weight, offset, stride, pad, dilation
 
     def _test_forward(self, device, contiguous):
-        x, offset, weight, stride, padding, dilation = self.get_fn_args(device, contiguous)
+        x, weight, offset, stride, padding, dilation = self.get_fn_args(device, contiguous)
 
         in_channels = 6
         out_channels = 2
@@ -458,28 +458,33 @@ class DeformConvTester(OpTester, unittest.TestCase):
         kernel_size = (3, 2)
         input_size = (5, 4)
 
+        groups = 2
+        offset_groups = 3
 
-        res = ops.DeformConv2d(in_channels, out_channels, kernel_size, input_size,
-                               stride=stride, padding=padding, dilation=dilation)(x)
+        res = ops.DeformConv2d(in_channels, out_channels, kernel_size, input_size, stride=stride,
+                    padding=padding, dilation=dilation, groups=groups, offset_groups=offset_groups)(x)
         expected = self.expected_fn(x, weight, offset, stride=stride, padding=padding, dilation=dilation)
+
+        print(res.shape)
+        print(expected.shape)
 
         self.assertTrue(torch.allclose(res, expected), '\nres:\n{}\nexpected:\n{}'.format(x, res, expected))
 
     def _test_backward(self, device, contiguous):
-        x, offset, weight, stride, padding, dilation = self.get_fn_args(device, contiguous)
+        x, weight, offset, stride, padding, dilation = self.get_fn_args(device, contiguous)
 
-        def func(x_, offset_, weight_):
-            return ops.deform_conv2d(x_, offset_, weight_, stride=stride, padding=padding, dilation=dilation)
+        def func(x_, weight_, offset_):
+            return ops.deform_conv2d(x_, weight_, offset_, stride=stride, padding=padding, dilation=dilation)
 
-        gradcheck(func, (x, offset, weight), nondet_tol=1e-5)
+        gradcheck(func, (x, weight, offset), nondet_tol=1e-5)
 
         @torch.jit.script
-        def script_func(x_, offset_, weight_, stride_, pad_, dilation_):
+        def script_func(x_, weight_, offset_, stride_, pad_, dilation_):
             # type: (Tensor, Tensor, Tensor, Tuple[int, int], Tuple[int, int], Tuple[int, int]) -> Tensor
             return ops.deform_conv2d(x_, weight_, offset_, stride=stride_, padding=pad_, dilation=dilation_)
 
         gradcheck(lambda z, off, wei: script_func(z, off, wei, stride, padding, dilation),
-                  (x, offset, weight), nondet_tol=1e-5)
+                  (x, weight, offset), nondet_tol=1e-5)
 
 
 if __name__ == '__main__':
