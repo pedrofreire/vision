@@ -693,5 +693,5 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> DeformConv2d_backward
 
   auto grad_bias = at::ones_like(bias);
 
-  return {grad_input, grad_offset, grad_weight, grad_bias};
+  return {grad_input, grad_weight, grad_offset, grad_bias};
 }
