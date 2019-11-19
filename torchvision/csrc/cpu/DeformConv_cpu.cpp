@@ -230,10 +230,11 @@ at::Tensor DeformConv2d_forward_cpu(
   int out_h = ((in_h + 2*pad_h - ker_h) / stride_h) + 1;
   int out_w = ((in_w + 2*pad_w - ker_w) / stride_w) + 1;
 
-  TORCH_CHECK(weight_h > 0 && weight_w > 0, "weight_h: ", weight_w, " weight_w: ", weight_h);
-  TORCH_CHECK(stride_h > 0 && stride_w > 0, "stride_h: ", stride_w, " stride_w: ", stride_h);
-  TORCH_CHECK(pad_h >= 0 && pad_w >= 0, "pad_h: ", pad_w, " pad_w: ", pad_h);
-  TORCH_CHECK(dil_h > 0 && dil_w > 0, "dil_h: ", dil_w, " dil_w: ", dil_h);
+
+  TORCH_CHECK(weight_h > 0 && weight_w > 0, "weight_h: ", weight_h, " weight_w: ", weight_w);
+  TORCH_CHECK(stride_h > 0 && stride_w > 0, "stride_h: ", stride_h, " stride_w: ", stride_w);
+  TORCH_CHECK(pad_h >= 0 && pad_w >= 0, "pad_h: ", pad_h, " pad_w: ", pad_w);
+  TORCH_CHECK(dil_h > 0 && dil_w > 0, "dil_h: ", dil_h, " dil_w: ", dil_w);
 
   TORCH_CHECK(weight.size(1) * n_weight_grps == input.size(1));
   TORCH_CHECK(weight.size(0) % n_weight_grps == 0);
@@ -250,7 +251,6 @@ at::Tensor DeformConv2d_forward_cpu(
 
   auto out = at::zeros({batch_sz, out_channels, out_h, out_w}, input.options());
 
-  std::cout << "out.sizes: " << out.sizes() << "\n";
   // Separate batches into blocks
   out = out.view({batch_sz / n_parallel_imgs, n_parallel_imgs, out_channels, out_h, out_w});
   input = input.view({batch_sz / n_parallel_imgs, n_parallel_imgs, n_in_channels, in_h, in_w});

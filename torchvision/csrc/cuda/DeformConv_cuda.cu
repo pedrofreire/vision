@@ -195,50 +195,6 @@ void deformable_im2col(
   }
 }
 
-void shape_check(at::Tensor input, at::Tensor weight,
-                 at::Tensor offset, std::pair<int, int> stride, std::pair<int, int> pad,
-                 std::pair<int, int> dilation, int n_weight_grps, int n_offset_grps) {
-
-  int in_h = input.size(2);
-  int in_w = input.size(3);
-
-  int weight_h = weight.size(2);
-  int weight_w = weight.size(3);
-
-  int stride_h = stride.first;
-  int stride_w = stride.second;
-
-  int pad_h = pad.first;
-  int pad_w = pad.second;
-
-  int dil_h = dilation.first;
-  int dil_w = dilation.second;
-
-  int ker_h = dil_h * (weight_h - 1) + 1;
-  int ker_w = dil_w * (weight_w - 1) + 1;
-  int out_h = ((in_h + 2*pad_h - ker_h) / stride_h) + 1;
-  int out_w = ((in_w + 2*pad_w - ker_w) / stride_w) + 1;
-
-  TORCH_CHECK(weight_h > 0 && weight_w > 0);
-  TORCH_CHECK(stride_h > 0 && stride_w > 0);
-  TORCH_CHECK(dil_h > 0 && dil_w > 0, "dil_h: ", dil_w, " dil_w: ", dil_h);
-  TORCH_CHECK(pad_h >= 0 && pad_w >= 0, "pad_h: ", pad_w, " pad_w: ", pad_h);
-
-  TORCH_CHECK(weight.size(1) * n_weight_grps == input.size(1));
-  TORCH_CHECK(weight.size(0) % n_weight_grps == 0);
-  TORCH_CHECK(input.size(1) % n_offset_grps == 0);
-
-  TORCH_CHECK((offset.size(0) == input.size(0)), "invalid batch size of offset");
-  TORCH_CHECK((offset.size(1) == n_offset_grps * 2 * weight_h * weight_w),
-           "invalid number of channels of offset");
-  TORCH_CHECK((offset.size(2) == out_h && offset.size(3) == out_w),
-           "offset output dims: (", offset.size(2), ", ", offset.size(3),
-           ") - output dims: (", out_h, ", ", out_w, ")");
-
-  TORCH_CHECK(out_h > 0 && out_w > 0,
-      "Calculated output size too small - out_h: ", out_h, " out_w: ", out_w);
-}
-
 int get_greatest_divisor_below_bound(int n, int bound) {
   for(int k = bound; k > 1; --k) {
     if(n % k == 0) {
@@ -296,10 +252,11 @@ at::Tensor DeformConv2d_forward_cuda(
   int out_h = ((in_h + 2*pad_h - ker_h) / stride_h) + 1;
   int out_w = ((in_w + 2*pad_w - ker_w) / stride_w) + 1;
 
-  TORCH_CHECK(weight_h > 0 && weight_w > 0, "weight_h: ", weight_w, " weight_w: ", weight_h);
-  TORCH_CHECK(stride_h > 0 && stride_w > 0, "stride_h: ", stride_w, " stride_w: ", stride_h);
-  TORCH_CHECK(pad_h >= 0 && pad_w >= 0, "pad_h: ", pad_w, " pad_w: ", pad_h);
-  TORCH_CHECK(dil_h > 0 && dil_w > 0, "dil_h: ", dil_w, " dil_w: ", dil_h);
+
+  TORCH_CHECK(weight_h > 0 && weight_w > 0, "weight_h: ", weight_h, " weight_w: ", weight_w);
+  TORCH_CHECK(stride_h > 0 && stride_w > 0, "stride_h: ", stride_h, " stride_w: ", stride_w);
+  TORCH_CHECK(pad_h >= 0 && pad_w >= 0, "pad_h: ", pad_h, " pad_w: ", pad_w);
+  TORCH_CHECK(dil_h > 0 && dil_w > 0, "dil_h: ", dil_h, " dil_w: ", dil_w);
 
   TORCH_CHECK(weight.size(1) * n_weight_grps == input.size(1));
   TORCH_CHECK(weight.size(0) % n_weight_grps == 0);
@@ -315,6 +272,7 @@ at::Tensor DeformConv2d_forward_cuda(
 
 
   auto out = at::zeros({batch_sz, out_channels, out_h, out_w}, input.options());
+
   // Separate batches into blocks
   out = out.view({batch_sz / n_parallel_imgs, n_parallel_imgs, out_channels, out_h, out_w});
   input = input.view({batch_sz / n_parallel_imgs, n_parallel_imgs, in_channels, in_h, in_w});

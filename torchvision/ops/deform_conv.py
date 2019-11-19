@@ -88,8 +88,6 @@ class DeformConv2d(nn.Module):
             padding=self.padding,
             dilation=self.dilation)
 
-        print('weight.shape: ', self.weight.shape)
-
         if bias:
             self.bias = Parameter(torch.empty(out_channels))
         else:
@@ -107,8 +105,7 @@ class DeformConv2d(nn.Module):
             init.uniform_(self.bias, -bound, bound)
 
     def forward(self, input):
-        offset = self.offset_conv.to(dtype=input.dtype)(input)
-        print('offset.shape: ', offset.shape)
+        offset = self.offset_conv.to(device=input.device, dtype=input.dtype)(input)
         return deform_conv2d(input, self.weight, offset, self.bias, stride=self.stride, padding=self.padding,
                              dilation=self.dilation)
 
