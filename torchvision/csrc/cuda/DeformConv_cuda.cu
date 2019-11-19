@@ -252,6 +252,7 @@ at::Tensor DeformConv2d_forward_cuda(
     const at::Tensor& input_param,
     const at::Tensor& weight_param,
     const at::Tensor& offset_param,
+    const at::Tensor& bias_param,
     std::pair<int, int> stride,
     std::pair<int, int> pad,
     std::pair<int, int> dilation,
@@ -344,7 +345,7 @@ at::Tensor DeformConv2d_forward_cuda(
   out.copy_(out_buf);
   out = out.view({batch_sz, out_channels, out_h, out_w});
 
-  return out;
+  return out + bias.view({1, out_channels, 1, 1});
 }
 
 
