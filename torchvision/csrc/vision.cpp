@@ -5,12 +5,12 @@
 #include <cuda.h>
 #endif
 
+#include "DeformConv.h"
 #include "PSROIAlign.h"
 #include "PSROIPool.h"
 #include "ROIAlign.h"
 #include "ROIPool.h"
 #include "nms.h"
-#include "DeformConv.h"
 
 // If we are in a Windows environment, we need to define
 // initialization functions for the _custom_ops extension
