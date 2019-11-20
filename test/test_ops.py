@@ -454,12 +454,12 @@ class DeformConvTester(OpTester, unittest.TestCase):
 
     def _test_forward(self, device, contiguous):
         x, _, _, _, stride, padding, dilation = self.get_fn_args(device, contiguous)
-
         in_channels = 6
         out_channels = 2
         kernel_size = (3, 2)
         groups = 2
         offset_groups = 3
+
         layer = ops.DeformConv2d(in_channels, out_channels, kernel_size, stride=stride, padding=padding,
                                  dilation=dilation, groups=groups, offset_groups=offset_groups)
         res = layer(x)

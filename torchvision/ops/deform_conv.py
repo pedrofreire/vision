@@ -57,11 +57,10 @@ def deform_conv2d(input, weight, offset, bias=None, stride=(1, 1), padding=(0, 0
 
 class DeformConv2d(nn.Module):
     """
-    See deform_conv
+    See deform_conv2d
     """
-    def __init__(self, in_channels, out_channels, kernel_size, stride=1,
-                 padding=0, dilation=1, groups=1, offset_groups=1,
-                 bias=True, padding_mode='zeros'):
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0,
+                 dilation=1, groups=1, offset_groups=1, bias=True):
         super(DeformConv2d, self).__init__()
 
         if in_channels % groups != 0:
@@ -77,6 +76,8 @@ class DeformConv2d(nn.Module):
         self.stride = _pair(stride)
         self.padding = _pair(padding)
         self.dilation = _pair(dilation)
+        self.groups = groups
+        self.offset_groups = offset_groups
 
         self.weight = Parameter(torch.empty(out_channels, in_channels // groups, kernel_size[0], kernel_size[1]))
 
@@ -109,12 +110,19 @@ class DeformConv2d(nn.Module):
         weight = self.weight.to(device=input.device, dtype=input.dtype)
         bias = self.bias.to(device=input.device, dtype=input.dtype) if self.bias is not None else self.bias
 
-        return deform_conv2d(input, weight, offset, bias, stride=self.stride, padding=self.padding,
-                             dilation=self.dilation)
+        return deform_conv2d(input, weight, offset, bias, stride=self.stride,
+                             padding=self.padding, dilation=self.dilation)
 
     def __repr__(self):
-        tmpstr = self.__class__.__name__ + '('
-        tmpstr += 'output_size=' + str(self.output_size)
-        tmpstr += ', spatial_scale=' + str(self.spatial_scale)
-        tmpstr += ')'
-        return tmpstr
+        s = self.__class__.__name__ + '('
+        s += '{in_channels}'
+        s += ', {out_channels}'
+        s += ', kernel_size={kernel_size}'
+        s += ', stride={stride}'
+        s += ', padding={padding}' if self.padding != (0, 0) else ''
+        s += ', dilation={dilation}' if self.dilation != (1, 1) else ''
+        s += ', groups={groups}' if self.groups != 1 else ''
+        s += ', offset_groups={offset_groups}' if self.offset_groups != 1 else ''
+        s += ', bias=False' if self.bias is None else ''
+        s += ')'
+        return s.format(**self.__dict__)
