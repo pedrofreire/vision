@@ -70,6 +70,7 @@
 #include <ATen/TensorUtils.h>
 #include <TH/TH.h>
 
+#include <cmath>
 #include <iostream>
 #include <tuple>
 
@@ -461,18 +462,18 @@ static void deformable_col2im_kernel(
         int yp = floor(y) + dy;
         int xp = floor(x) + dx;
         if (0 <= yp && yp < height && 0 <= xp && xp < width &&
-            abs(y - yp) < 1 && abs(x - xp) < 1) {
+            std::abs(y - yp) < 1 && std::abs(x - xp) < 1) {
           std::cout << "1yp: " << yp << "\n";
           std::cout << "xp: " << xp << "\n";
           std::cout << "y - yp: " << y - yp << "\n";
           std::cout << "x - xp: " << x - xp << "\n";
-          std::cout << "abs(y - yp): " << abs(y - yp) << "\n";
-          std::cout << "abs(x - xp): " << abs(x - xp) << "\n";
-          std::cout << "(1 - abs(y - yp)): " <<  (1 - abs(y - yp)) << "\n";
-          std::cout << "(1 - abs(x - xp)): " <<  (1 - abs(x - xp)) << "\n";
+          std::cout << "std::abs(y - yp): " << std::abs(y - yp) << "\n";
+          std::cout << "std::abs(x - xp): " << std::abs(x - xp) << "\n";
+          std::cout << "(1 - std::abs(y - yp)): " <<  (1 - std::abs(y - yp)) << "\n";
+          std::cout << "(1 - std::abs(x - xp)): " <<  (1 - std::abs(x - xp)) << "\n";
 
           int grad_pos = ((b * channels + c) * height + yp) * width + xp;
-          scalar_t weight = (1 - abs(y - yp)) * (1 - abs(x - xp));
+          scalar_t weight = (1 - std::abs(y - yp)) * (1 - std::abs(x - xp));
           std::cout << "weight: " << weight << "\n";
           grad_im[grad_pos] += weight * col[index];
         }
