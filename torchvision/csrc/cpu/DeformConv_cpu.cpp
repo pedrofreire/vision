@@ -464,6 +464,8 @@ static void deformable_col2im_kernel(
             abs(y - yp) < 1 && abs(x - xp) < 1) {
           std::cout << "1yp: " << yp << "\n";
           std::cout << "xp: " << xp << "\n";
+          std::cout << "y - yp: " << y - yp << "\n";
+          std::cout << "x - xp: " << x - xp << "\n";
           std::cout << "abs(y - yp): " << abs(y - yp) << "\n";
           std::cout << "abs(x - xp): " << abs(x - xp) << "\n";
           std::cout << "(1 - abs(y - yp)): " <<  (1 - abs(y - yp)) << "\n";
