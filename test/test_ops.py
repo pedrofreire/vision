@@ -417,20 +417,20 @@ class DeformConvTester(OpTester, unittest.TestCase):
 
     def get_fn_args(self, device, contiguous):
         batch_sz = 1
-        n_in_channels = 6
-        n_out_channels = 2
-        n_weight_grps = 2
-        n_offset_grps = 3
+        n_in_channels = 1
+        n_out_channels = 1
+        n_weight_grps = 1
+        n_offset_grps = 1
 
-        stride = (2, 1)
+        stride = (1, 1)
         pad = (1, 0)
-        dilation = (2, 1)
+        dilation = (1, 1)
 
         stride_h, stride_w = stride
         pad_h, pad_w = pad
         dil_h, dil_w = dilation
-        weight_h, weight_w = (3, 2)
-        in_h, in_w = (5, 4)
+        weight_h, weight_w = (2, 2)
+        in_h, in_w = (2, 2)
 
         out_h = (in_h + 2 * pad_h - (dil_h * (weight_h - 1) + 1)) // stride_h + 1
         out_w = (in_w + 2 * pad_w - (dil_w * (weight_w - 1) + 1)) // stride_w + 1
