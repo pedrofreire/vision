@@ -467,8 +467,8 @@ __global__ void deformable_col2im_gpu_kernel(
 
     for (int dy = -1; dy <= 1; dy++) {
       for (int dx = -1; dx <= 1; dx++) {
-        int yp = int(y) + dy;
-        int xp = int(x) + dx;
+        int yp = floor(y) + dy;
+        int xp = floor(x) + dx;
         if (0 <= yp && yp < height && 0 <= xp && xp < width &&
             abs(y - yp) < 1 && abs(x - xp) < 1) {
           int grad_pos = ((b * channels + c) * height + yp) * width + xp;
