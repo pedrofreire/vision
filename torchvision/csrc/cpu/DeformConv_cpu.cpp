@@ -460,8 +460,13 @@ static void deformable_col2im_kernel(
       for (int dx = -1; dx <= 1; dx++) {
         int yp = floor(y) + dy;
         int xp = floor(x) + dx;
+          std::cout << "0yp: " << yp << "\n";
+          std::cout << "xp: " << yp << "\n";
+
         if (0 <= yp && yp < height && 0 <= xp && xp < width &&
             abs(y - yp) < 1 && abs(x - xp) < 1) {
+          std::cout << "1yp: " << yp << "\n";
+          std::cout << "xp: " << yp << "\n";
           int grad_pos = ((b * channels + c) * height + yp) * width + xp;
           scalar_t weight = (1 - abs(y - yp)) * (1 - abs(x - xp));
           grad_im[grad_pos] += weight * col[index];
