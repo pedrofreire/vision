@@ -435,7 +435,7 @@ class DeformConvTester(OpTester, unittest.TestCase):
         out_h = (in_h + 2 * pad_h - (dil_h * (weight_h - 1) + 1)) // stride_h + 1
         out_w = (in_w + 2 * pad_w - (dil_w * (weight_w - 1) + 1)) // stride_w + 1
 
-        x = torch.zeros(batch_sz, n_in_channels, in_h, in_w, device=device, dtype=self.dtype, requires_grad=True)
+        x = torch.ones(batch_sz, n_in_channels, in_h, in_w, device=device, dtype=self.dtype, requires_grad=True)
 
         offset = torch.ones(batch_sz, n_offset_grps * 2 * weight_h * weight_w, out_h, out_w,
                              device=device, dtype=self.dtype, requires_grad=True)
@@ -443,7 +443,7 @@ class DeformConvTester(OpTester, unittest.TestCase):
         weight = torch.ones(n_out_channels, n_in_channels // n_weight_grps, weight_h, weight_w,
                              device=device, dtype=self.dtype, requires_grad=True)
 
-        bias = torch.zeros(n_out_channels, device=device, dtype=self.dtype, requires_grad=True)
+        bias = torch.ones(n_out_channels, device=device, dtype=self.dtype, requires_grad=True)
 
         if not contiguous:
             x = x.permute(0, 1, 3, 2).contiguous().permute(0, 1, 3, 2)
