@@ -450,6 +450,12 @@ static void deformable_col2im_kernel(
     const scalar_t y = (out_y * stride_h - pad_h) + i * dilation_h + offset_h;
     const scalar_t x = (out_x * stride_w - pad_w) + j * dilation_w + offset_w;
 
+    std::cout << "offset_h: " << offset_h << "\n";
+    std::cout << "offset_w: " << offset_w << "\n";
+
+    std::cout << "y: " << y << "\n";
+    std::cout << "x: " << x << "\n";
+
     for (int dy = -1; dy <= 1; dy++) {
       for (int dx = -1; dx <= 1; dx++) {
         int yp = floor(y) + dy;
