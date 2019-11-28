@@ -429,8 +429,8 @@ class DeformConvTester(OpTester, unittest.TestCase):
         stride_h, stride_w = stride
         pad_h, pad_w = pad
         dil_h, dil_w = dilation
-        weight_h, weight_w = (2, 2)
-        in_h, in_w = (2, 2)
+        weight_h, weight_w = (1, 1)
+        in_h, in_w = (1, 1)
 
         out_h = (in_h + 2 * pad_h - (dil_h * (weight_h - 1) + 1)) // stride_h + 1
         out_w = (in_w + 2 * pad_w - (dil_w * (weight_w - 1) + 1)) // stride_w + 1
