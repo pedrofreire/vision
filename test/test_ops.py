@@ -437,7 +437,7 @@ class DeformConvTester(OpTester, unittest.TestCase):
 
         x = torch.ones(batch_sz, n_in_channels, in_h, in_w, device=device, dtype=self.dtype, requires_grad=True)
 
-        offset = torch.ones(batch_sz, n_offset_grps * 2 * weight_h * weight_w, out_h, out_w,
+        offset = 0.5*torch.ones(batch_sz, n_offset_grps * 2 * weight_h * weight_w, out_h, out_w,
                              device=device, dtype=self.dtype, requires_grad=True)
 
         weight = torch.ones(n_out_channels, n_in_channels // n_weight_grps, weight_h, weight_w,
